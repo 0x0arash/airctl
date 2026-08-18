@@ -1,0 +1,62 @@
+{
+  "name": "airctl",
+  "version": "0.1.0",
+  "description": "Air traffic control for localhost — discover, inspect, and control local development services.",
+  "keywords": [
+    "cli",
+    "developer-tools",
+    "discovery",
+    "localhost",
+    "ports",
+    "processes"
+  ],
+  "license": "MIT",
+  "bin": {
+    "airctl": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p web/tsconfig.json",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint --fix .",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "node scripts/test.mjs",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
+    "dev": "tsx src/cli.ts",
+    "dev:ui": "tsx src/cli.ts ui",
+    "prepare": "node scripts/install-hooks.mjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@types/node": "^22.17.2",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "esbuild": "^0.25.12",
+    "fast-check": "^4.2.0",
+    "lefthook": "^2.1.10",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  }
+}

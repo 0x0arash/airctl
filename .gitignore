@@ -1,0 +1,14 @@
+node_modules/
+dist/
+web/dist/
+coverage/
+*.log
+.DS_Store
+.airctl/
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.tsbuildinfo
+.lefthook-local.yml
