@@ -2,15 +2,6 @@
   "name": "airctl",
   "version": "0.1.1",
   "description": "Air traffic control for localhost — discover, inspect, and control local development services.",
-  "author": {
-    "name": "Arash Ghorban",
-    "url": "https://github.com/0x0arash"
-  },
-  "homepage": "https://github.com/0x0arash/airctl",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/0x0arash/airctl.git"
-  },
   "keywords": [
     "cli",
     "developer-tools",
@@ -19,7 +10,16 @@
     "ports",
     "processes"
   ],
+  "homepage": "https://github.com/0x0arash/airctl",
   "license": "MIT",
+  "author": {
+    "name": "Arash Ghorban",
+    "url": "https://github.com/0x0arash"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0x0arash/airctl.git"
+  },
   "bin": {
     "airctl": "./dist/cli.js"
   },
