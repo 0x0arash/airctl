@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "node", "import", "react"],
+  "env": {
+    "node": true
+  },
+  "ignorePatterns": ["dist/**", "web/dist/**", "node_modules/**", "coverage/**"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-explicit-any": "error",
+    "no-console": "off",
+    "react-in-jsx-scope": "off"
+  },
+  "overrides": [
+    {
+      "files": ["web/**/*.{ts,tsx}"],
+      "env": {
+        "browser": true,
+        "node": false
+      }
+    },
+    {
+      "files": ["test/**/*.ts"],
+      "rules": {
+        "no-explicit-any": "off"
+      }
+    }
+  ]
+}
