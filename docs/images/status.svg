@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="420" viewBox="0 0 920 420" role="img" aria-label="airctl status in a terminal">
+  <rect width="920" height="420" rx="16" fill="#061018"/>
+  <rect x="12" y="12" width="896" height="396" rx="12" fill="#0b1822" stroke="#1e3a48"/>
+  <circle cx="36" cy="36" r="6" fill="#ef6a6a"/>
+  <circle cx="56" cy="36" r="6" fill="#e6b84d"/>
+  <circle cx="76" cy="36" r="6" fill="#3dce8a"/>
+  <text x="104" y="41" fill="#8aa4ad" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">npx airctl status</text>
+  <text x="36" y="84" fill="#7be0c1" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" font-weight="700">AIRCTL  LOCAL DEVELOPMENT</text>
+  <text x="36" y="112" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">3 services</text>
+  <text x="36" y="132" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">3 healthy</text>
+  <text x="36" y="172" fill="#8aa4ad" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">PROJECT           SERVICE         PORT        STATUS</text>
+  <text x="36" y="204" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">shop              Vite            5173        <tspan fill="#3dce8a">Ï</tspan> healthy</text>
+  <text x="36" y="228" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">shop              api             8080        <tspan fill="#3dce8a">Ï</tspan> healthy</text>
+  <text x="36" y="252" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">shop              Postgres        5432        <tspan fill="#3dce8a">Ï</tspan> healthy</text>
+  <text x="36" y="300" fill="#8aa4ad" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">$ airctl explain :3000</text>
+  <text x="36" y="328" fill="#e7f2ea" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">PORT 3000  <tspan fill="#3dce8a">Ï OCCUPIED</tspan>  PID 18472  next  old-blog</text>
+  <text x="36" y="356" fill="#8aa4ad" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">Actions:  airctl stop :3000    airctl stop old-blog</text>
+  <text x="36" y="384" fill="#1e3a48" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">Data stays on this machine.</text>
+</svg>
