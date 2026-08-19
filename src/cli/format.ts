@@ -133,6 +133,17 @@ export function formatGraph(snapshot: Snapshot): string {
       lines.push(`└── ${service.name}${port !== undefined ? `    localhost:${port}` : ""}`);
     }
   }
+  const observed = snapshot.graph.edges.filter(
+    (e) => e.kind === "observed" && e.reason.includes("connection"),
+  );
+  if (observed.length > 0) {
+    lines.push("", "Observed connections:");
+    for (const edge of observed) {
+      const from = snapshot.graph.nodes.find((n) => n.id === edge.from)?.label ?? edge.from;
+      const to = snapshot.graph.nodes.find((n) => n.id === edge.to)?.label ?? edge.to;
+      lines.push(`  ${from} → ${to}  (${edge.reason})`);
+    }
+  }
   const inferred = snapshot.graph.edges.filter((e) => e.kind === "inferred");
   if (inferred.length > 0) {
     lines.push("", "Inferred relationships:");
@@ -161,7 +172,9 @@ export function formatInspect(
     `Executable:  ${proc.executable ?? "unknown"}`,
     proc.executablePath ? `Path:        ${proc.executablePath}` : undefined,
     proc.command ? `Command:     ${proc.command}` : undefined,
-    proc.cwd ? `Cwd:         ${proc.cwd}` : "Cwd:         unavailable",
+    proc.cwd
+      ? `Cwd:         ${proc.cwd}${proc.cwdKind === "inferred" ? " (inferred)" : ""}`
+      : "Cwd:         unavailable",
     proc.user ? `User:        ${proc.user}` : undefined,
     proc.parentPid !== undefined ? `Parent:      ${proc.parentPid}` : undefined,
     formatAge(proc.startedAt, nowMs)
