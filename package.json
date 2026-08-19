@@ -16,10 +16,7 @@
     "name": "Arash Ghorban",
     "url": "https://github.com/0x0arash"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/0x0arash/airctl.git"
-  },
+  "repository": "git+https://github.com/0x0arash/airctl.git",
   "bin": {
     "airctl": "./dist/cli.js"
   },
