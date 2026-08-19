@@ -43,7 +43,7 @@
   <text x="700" y="316" fill="#3dce8a" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="14">healthy</text>
 
   <rect x="248" y="360" width="760" height="160" rx="12" fill="#10202b" stroke="#1e3a48"/>
-  <text x="268" y="392" fill="#8aa4ad" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="12">Topology · solid = observed · dashed = inferred</text>
+  <text x="268" y="392" fill="#8aa4ad" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="12">Topology &#xB7; solid = observed &#xB7; dashed = inferred</text>
   <circle cx="360" cy="460" r="28" fill="#061018" stroke="#7be0c1"/>
   <text x="344" y="465" fill="#e7f2ea" font-family="IBM Plex Sans, Segoe UI, sans-serif" font-size="12">Vite</text>
   <line x1="388" y1="460" x2="500" y2="460" stroke="#3dce8a" stroke-width="2"/>
