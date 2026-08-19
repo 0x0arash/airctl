@@ -1,0 +1,83 @@
+name: Platform or detector support
+description: Report incorrect detection, missing service support, or OS-specific behavior
+title: "[detect]: "
+labels: ["detector", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when AirCtl misidentifies a service, misses a dev stack, or behaves differently across operating systems.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What is being detected incorrectly or not at all?
+    validations:
+      required: true
+
+  - type: input
+    id: service
+    attributes:
+      label: Service or stack
+      description: e.g. Vite, Next.js, Docker, Postgres, custom npm script
+      placeholder: Vite + React
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: How to reproduce
+      description: Commands to start the service and the AirCtl command that shows the problem.
+      render: shell
+      placeholder: |
+        npm create vite@latest my-app && cd my-app && npm install && npm run dev
+        airctl status --json
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected detection
+      description: What AirCtl should show (project, service name, port, status).
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual detection
+      description: What AirCtl currently shows, or that the service is missing entirely.
+    validations:
+      required: true
+
+  - type: input
+    id: airctl-version
+    attributes:
+      label: AirCtl version
+      placeholder: 0.1.3
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I included `--json` output where possible
+          required: true
+        - label: I redacted private paths or secrets from the output
+          required: true

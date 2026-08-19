@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & ideas
+    url: https://github.com/0x0arash/airctl/discussions
+    about: Ask questions, share ideas, or discuss usage before opening an issue.
+  - name: Security vulnerability
+    url: https://github.com/0x0arash/airctl/security/advisories/new
+    about: Report a security issue privately (do not open a public issue).
