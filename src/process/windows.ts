@@ -1,6 +1,7 @@
 import type { CommandRunner } from "../runtime/spawn.js";
 import type { ProcessInfo } from "../domain/types.js";
 import { redactCommand } from "../domain/redact.js";
+import { inferCwdFromCommand } from "./cwd.js";
 
 export async function listWindowsProcesses(commands: CommandRunner): Promise<ProcessInfo[]> {
   const script = [
@@ -23,9 +24,18 @@ export async function listWindowsProcesses(commands: CommandRunner): Promise<Pro
   ]);
   if (result.code !== 0 && !result.stdout.trim()) {
     const fallback = await commands.run("tasklist", ["/FO", "CSV", "/NH"]);
-    return parseTasklist(fallback.stdout);
+    return attachInferredCwds(parseTasklist(fallback.stdout));
   }
-  return parseWindowsCim(result.stdout);
+  return attachInferredCwds(parseWindowsCim(result.stdout));
+}
+
+export function attachInferredCwds(processes: ProcessInfo[]): ProcessInfo[] {
+  return processes.map((proc) => {
+    if (proc.cwd) return { ...proc, cwdKind: proc.cwdKind ?? "observed" };
+    const inferred = inferCwdFromCommand(proc.command, proc.executablePath);
+    if (!inferred) return proc;
+    return { ...proc, cwd: inferred, cwdKind: "inferred" };
+  });
 }
 
 export function parseWindowsCim(text: string): ProcessInfo[] {
