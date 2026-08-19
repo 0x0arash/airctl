@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4] — 2026-08-19
+
+### Added
+
+- **Agent skill** (`skills/airctl/`): installable skill for coding agents — port-conflict diagnostics, safe stop workflow, and `--json` reference. Install with `npx skills add 0x0arash/airctl@airctl`.
+
 ## [0.1.3] — 2026-08-19
 
 ### Added
