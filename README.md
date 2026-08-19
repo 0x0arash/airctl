@@ -1,51 +1,63 @@
 # AirCtl
 
-Air traffic control for localhost.
+**What the hell is using port 3000?**
 
-Your laptop has a network. AirCtl lets you see and control it.
+```bash
+npx airctl explain :3000
+```
 
-AirCtl discovers what is running on your machine, figures out which processes and projects own which ports, and gives you a fast CLI plus a local web UI to inspect and control your development environment.
+```text
+PORT 3000
+────────────────────────────────────
+● OCCUPIED
 
-It is **not** a generic port scanner, reverse proxy, or another dashboard. It answers:
+  node · PID 18472
+  ~/code/old-blog
+  npm run dev
+  running for 2h 14m
 
-> What is happening on my machine, what caused it, and what can I do about it?
+  This is probably a stale development server.
+```
+
+```bash
+npx airctl stop :3000
+# ✓ stopped
+```
+
+![AirCtl in action](docs/images/demo.gif)
+
+---
+
+Your laptop has a network. AirCtl lets you **see it, understand it, and control it**.
 
 ![`npx airctl status` in a terminal](docs/images/status.svg)
 
-## Why it exists
+[Install](#install) · [GitHub](https://github.com/0x0arash/airctl) · [Web UI](#web-ui)
+
+---
+
+## Why?
 
 Developers constantly run into:
 
-- “What is using port 3000?”
+- `Error: EADDRINUSE :::3000`
 - leftover Vite/Next servers from a forgotten terminal
 - a Postgres container bound to `0.0.0.0`
 - two projects that both want `:8080`
 
-`lsof` and `netstat` answer the first question badly. AirCtl answers the rest.
+`lsof` and `netstat` answer "what is using port X?" badly. They don't tell you *which project*, *how long it's been running*, or *whether you can safely kill it*.
 
-## Quick start
+AirCtl does.
 
-Requires **Node.js 22.14+**.
-
-```bash
-npx airctl
-npx airctl status
-npx airctl explain :3000
-npx airctl ui
-```
-
-Or install globally:
+## What can it do?
 
 ```bash
-npm install -g airctl
-airctl status
-airctl explain :3000
-airctl stop :3000
+airctl explain :3000     # what is using this port, and why?
+airctl stop :3000        # stop it (asks first, never SIGKILL)
+airctl status            # every development service on your machine
+airctl status --watch    # live terminal dashboard
+airctl ui                # local web UI
 ```
-
-![AirCtl web UI overview](docs/images/ui.svg)
-
-Example:
 
 ```text
 AIRCTL — LOCAL DEVELOPMENT
@@ -60,15 +72,35 @@ shop             api           8080        ● healthy
 shop             Postgres      5432        ● healthy
 ```
 
-From a clone:
+![AirCtl web UI overview](docs/images/ui.svg)
+
+## Install
+
+Requires **Node.js 22.14+**.
+
+**Try instantly** — no install needed:
 
 ```bash
-npm install
-npm run build
+npx airctl
+npx airctl explain :3000
+```
+
+**Install globally:**
+
+```bash
+npm install -g airctl
+```
+
+**From source:**
+
+```bash
+git clone https://github.com/0x0arash/airctl.git
+cd airctl
+npm install && npm run build
 node dist/cli.js status
 ```
 
-## CLI
+## CLI reference
 
 ```bash
 airctl                 # same as status
@@ -97,7 +129,7 @@ Flags: `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--
 
 JSON output is a single document. Logs never mix into `--json`.
 
-Completions:
+**Shell completions:**
 
 ```bash
 # bash
@@ -120,7 +152,7 @@ Binds to `127.0.0.1:4114` by default. Views: overview, services, projects, topol
 
 Live updates use Server-Sent Events. The browser does not poll every second.
 
-## Architecture
+## How it works
 
 ```text
 CLI / TUI / Web
@@ -132,9 +164,7 @@ CLI / TUI / Web
  OS / Docker / filesystem
 ```
 
-Domain logic does not depend on React. The CLI does not contain discovery rules. The UI consumes `/api/v1`.
-
-Platform backends:
+AirCtl queries the OS for processes, sockets, working directories, and Docker containers, then correlates them into projects and services.
 
 | Area      | Linux                      | macOS              | Windows                                                       |
 | --------- | -------------------------- | ------------------ | ------------------------------------------------------------- |
@@ -144,27 +174,33 @@ Platform backends:
 | Forwards  | —                          | —                  | WSL/`wslrelay`, Hyper-V, `netsh interface portproxy`          |
 | Graph     | established TCP in `/proc` | `lsof` ESTABLISHED | `netstat` ESTABLISHED to localhost                            |
 
-If something cannot be inspected, AirCtl degrades: `Permission limited`, `Unavailable on this platform`, or `Unknown`. It does not crash the scan.
+If something cannot be inspected, AirCtl degrades gracefully — `Permission limited`, `Unavailable on this platform`, or `Unknown`. It does not crash the scan.
+
+### Inference vs observation
+
+Topology edges and framework guesses are labeled:
+
+- **Observed** — process/socket/project evidence from the OS
+- **Inferred** — likely relationships (Compose, typical frontend→api→db)
+- **Unknown** — not enough signal
+
+AirCtl will not present an inference as a fact.
 
 ## Permissions
 
-AirCtl does **not** require root or Administrator. Working directories on Windows are inferred from command lines when the OS will not expose them, and listener PIDs are queried via the process PEB when permitted. `airctl doctor` reports how complete the scan was.
+AirCtl does **not** require root or Administrator. `airctl doctor` reports how complete the scan was.
 
 ## Privacy
 
-AirCtl does not send your process, project, or network data anywhere.
+AirCtl does not send your data anywhere.
 
-- no cloud service
-- no telemetry
-- no analytics
-- no accounts
-- no external API calls
+- no cloud service, no telemetry, no analytics, no accounts, no external API calls
 
 Environment variables are never displayed by default and never persisted. Command lines are redacted when they look like they contain secrets.
 
 ## Security
 
-The local HTTP API is not “safe because it is localhost.”
+The local HTTP API is not "safe because it is localhost."
 
 - loopback bind only (`127.0.0.1`)
 - origin checks
@@ -174,25 +210,6 @@ The local HTTP API is not “safe because it is localhost.”
 - never interpolates user input into a shell
 
 See [SECURITY.md](SECURITY.md).
-
-## Health checks
-
-Conservative by design:
-
-- TCP connect with a short timeout
-- HTTP GET `/` only for likely HTTP development servers
-- distinctive User-Agent `AirCtl/… (local-health-check)`
-- no credentials, no form posts, no destructive methods
-
-## Inference vs observation
-
-Topology edges and framework guesses are labeled:
-
-- **Observed** — process/socket/project evidence from the OS
-- **Inferred** — likely relationships (Compose, typical frontend→api→db)
-- **Unknown** — not enough signal
-
-AirCtl will not present an inference as a fact.
 
 ## Configuration
 
@@ -215,6 +232,15 @@ security:
 
 Locations: `./airctl.yaml` or the user config directory (`~/.config/airctl/config.yaml`, `%LOCALAPPDATA%\airctl\config.yaml`, `~/Library/Application Support/airctl/config.yaml`).
 
+## Health checks
+
+Conservative by design:
+
+- TCP connect with a short timeout
+- HTTP GET `/` only for likely HTTP development servers
+- distinctive User-Agent `AirCtl/… (local-health-check)`
+- no credentials, no form posts, no destructive methods
+
 ## Development
 
 ```bash
@@ -231,7 +257,7 @@ Linting uses **oxlint**, formatting uses **oxfmt**. Git hooks are managed with *
 
 Tests use fake process/socket/filesystem providers. They do not require Docker.
 
-Minimum Node.js: **22.14**. `node:sqlite` is used as a local cache when available; AirCtl falls back to in-memory storage otherwise. The OS remains the source of truth for live processes and sockets.
+Minimum Node.js: **22.14**. `node:sqlite` is used as a local cache when available; AirCtl falls back to in-memory storage otherwise.
 
 ## Troubleshooting
 
