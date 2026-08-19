@@ -1,32 +1,36 @@
 {
   "name": "airctl-vscode",
   "displayName": "AirCtl",
-  "description": "Air traffic control for localhost — discover, inspect, and control local development services from VS Code.",
   "version": "0.1.3",
-  "publisher": "0x0arash",
+  "description": "Air traffic control for localhost — discover, inspect, and control local development services from VS Code.",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "developer-tools",
+    "localhost",
+    "ports",
+    "processes"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/0x0arash/airctl.git",
     "directory": "vscode-extension"
   },
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "keywords": [
-    "ports",
-    "processes",
-    "localhost",
-    "developer-tools"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "publisher": "0x0arash",
   "main": "./dist/extension.js",
-  "icon": "icon.png",
+  "scripts": {
+    "compile": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.3.2",
+    "esbuild": "^0.25.12"
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -110,15 +114,11 @@
       }
     }
   },
-  "scripts": {
-    "compile": "node build.mjs",
-    "watch": "node build.mjs --watch",
-    "package": "vsce package"
-  },
-  "devDependencies": {
-    "@types/node": "^18.19.130",
-    "@types/vscode": "^1.85.0",
-    "@vscode/vsce": "^3.3.2",
-    "esbuild": "^0.25.12"
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "icon": "icon.png",
+  "engines": {
+    "vscode": "^1.85.0"
   }
 }

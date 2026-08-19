@@ -45,7 +45,7 @@ Developers constantly run into:
 - a Postgres container bound to `0.0.0.0`
 - two projects that both want `:8080`
 
-`lsof` and `netstat` answer "what is using port X?" badly. They don't tell you *which project*, *how long it's been running*, or *whether you can safely kill it*.
+`lsof` and `netstat` answer "what is using port X?" badly. They don't tell you _which project_, _how long it's been running_, or _whether you can safely kill it_.
 
 AirCtl does.
 

@@ -64,9 +64,7 @@ function resolveCommand(): { cmd: string; args: string[]; shell: boolean } {
   }
 
   // Check relative to extension install dir (works when developing in-repo)
-  const candidates = [
-    join(__dirname, "..", "..", "dist", "cli.js"),
-  ];
+  const candidates = [join(__dirname, "..", "..", "dist", "cli.js")];
 
   // Check workspace folders for an airctl project with a built CLI
   for (const folder of vscode.workspace.workspaceFolders ?? []) {

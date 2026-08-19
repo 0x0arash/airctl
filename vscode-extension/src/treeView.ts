@@ -32,13 +32,20 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
       if (projects.length === 0 && this.data.services.length === 0) return [];
 
       const projectNodes = projects.map(
-        (p) => new ProjectNode(p, this.data!.services.filter((s) => s.projectId === p.id))
+        (p) =>
+          new ProjectNode(
+            p,
+            this.data!.services.filter((s) => s.projectId === p.id),
+          ),
       );
 
       const unattached = this.data.services.filter((s) => !s.projectId);
       if (unattached.length > 0) {
         projectNodes.push(
-          new ProjectNode({ id: "__none__", name: "No project", root: "", markers: [] }, unattached)
+          new ProjectNode(
+            { id: "__none__", name: "No project", root: "", markers: [] },
+            unattached,
+          ),
         );
       }
 
@@ -58,7 +65,10 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
 }
 
 class ProjectNode extends vscode.TreeItem {
-  constructor(public readonly project: ProjectEntry, public readonly services: ServiceEntry[]) {
+  constructor(
+    public readonly project: ProjectEntry,
+    public readonly services: ServiceEntry[],
+  ) {
     super(project.name, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = "project";
     this.description = project.root ? project.root : undefined;
@@ -68,9 +78,12 @@ class ProjectNode extends vscode.TreeItem {
 
 class ServiceNode extends vscode.TreeItem {
   constructor(public readonly service: ServiceEntry) {
-    super(service.name, service.ports.length > 0
-      ? vscode.TreeItemCollapsibleState.Collapsed
-      : vscode.TreeItemCollapsibleState.None);
+    super(
+      service.name,
+      service.ports.length > 0
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None,
+    );
 
     this.contextValue = "service";
     this.description = healthLabel(service.health);
@@ -104,7 +117,10 @@ function healthIcon(health: string): vscode.ThemeIcon {
     case "stopped":
       return new vscode.ThemeIcon("circle-outline");
     case "orphaned":
-      return new vscode.ThemeIcon("warning", new vscode.ThemeColor("problemsWarningIcon.foreground"));
+      return new vscode.ThemeIcon(
+        "warning",
+        new vscode.ThemeColor("problemsWarningIcon.foreground"),
+      );
     default:
       return new vscode.ThemeIcon("question");
   }

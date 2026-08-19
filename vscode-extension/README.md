@@ -15,10 +15,10 @@ The `airctl` CLI must be available on your PATH (install with `npm install -g ai
 
 ## Settings
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `airctl.path` | `airctl` | Path to the airctl binary. |
-| `airctl.refreshInterval` | `10` | Auto-refresh interval in seconds. |
+| Setting                  | Default  | Description                       |
+| ------------------------ | -------- | --------------------------------- |
+| `airctl.path`            | `airctl` | Path to the airctl binary.        |
+| `airctl.refreshInterval` | `10`     | Auto-refresh interval in seconds. |
 
 ## Development
 

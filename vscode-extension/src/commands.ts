@@ -37,7 +37,9 @@ export function registerCommands(
         channel.appendLine(`Port ${result.port}`);
         channel.appendLine(result.occupied ? "OCCUPIED" : "FREE");
         if (result.process) {
-          channel.appendLine(`  Process: ${result.process.executable ?? "unknown"} (PID ${result.process.pid})`);
+          channel.appendLine(
+            `  Process: ${result.process.executable ?? "unknown"} (PID ${result.process.pid})`,
+          );
           if (result.process.cwd) channel.appendLine(`  CWD: ${result.process.cwd}`);
           if (result.process.command) channel.appendLine(`  Command: ${result.process.command}`);
         }
@@ -55,31 +57,38 @@ export function registerCommands(
         }
         channel.show(true);
       } catch (err) {
-        vscode.window.showErrorMessage(`AirCtl: ${err instanceof Error ? err.message : String(err)}`);
+        vscode.window.showErrorMessage(
+          `AirCtl: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }),
 
-    vscode.commands.registerCommand("airctl.stopService", async (item?: { service?: { processId?: number | null; name?: string } }) => {
-      const pid = item?.service?.processId;
-      if (!pid) {
-        vscode.window.showWarningMessage("AirCtl: No process ID available for this service.");
-        return;
-      }
+    vscode.commands.registerCommand(
+      "airctl.stopService",
+      async (item?: { service?: { processId?: number | null; name?: string } }) => {
+        const pid = item?.service?.processId;
+        if (!pid) {
+          vscode.window.showWarningMessage("AirCtl: No process ID available for this service.");
+          return;
+        }
 
-      const answer = await vscode.window.showWarningMessage(
-        `Stop ${item?.service?.name ?? "service"} (PID ${pid})?`,
-        { modal: true },
-        "Stop",
-      );
-      if (answer !== "Stop") return;
+        const answer = await vscode.window.showWarningMessage(
+          `Stop ${item?.service?.name ?? "service"} (PID ${pid})?`,
+          { modal: true },
+          "Stop",
+        );
+        if (answer !== "Stop") return;
 
-      try {
-        await stopProcess(pid);
-        vscode.window.showInformationMessage(`AirCtl: Stopped PID ${pid}.`);
-        await onRefresh();
-      } catch (err) {
-        vscode.window.showErrorMessage(`AirCtl: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }),
+        try {
+          await stopProcess(pid);
+          vscode.window.showInformationMessage(`AirCtl: Stopped PID ${pid}.`);
+          await onRefresh();
+        } catch (err) {
+          vscode.window.showErrorMessage(
+            `AirCtl: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      },
+    ),
   );
 }
