@@ -10,6 +10,8 @@ It is **not** a generic port scanner, reverse proxy, or another dashboard. It an
 
 > What is happening on my machine, what caused it, and what can I do about it?
 
+![`npx airctl status` in a terminal](docs/images/status.svg)
+
 ## Why it exists
 
 Developers constantly run into:
@@ -26,19 +28,22 @@ Developers constantly run into:
 Requires **Node.js 22.14+**.
 
 ```bash
-npm install
-npm run build
-node dist/cli.js status
+npx airctl
+npx airctl status
+npx airctl explain :3000
+npx airctl ui
 ```
 
-After a global install:
+Or install globally:
 
 ```bash
 npm install -g airctl
-airctl
 airctl status
-airctl explain 3000
+airctl explain :3000
+airctl stop :3000
 ```
+
+![AirCtl web UI overview](docs/images/ui.svg)
 
 Example:
 
@@ -55,6 +60,14 @@ shop             api           8080        ● healthy
 shop             Postgres      5432        ● healthy
 ```
 
+From a clone:
+
+```bash
+npm install
+npm run build
+node dist/cli.js status
+```
+
 ## CLI
 
 ```bash
@@ -66,9 +79,12 @@ airctl explain :3000   # why this port is occupied
 airctl inspect <pid>
 airctl projects
 airctl services
-airctl graph           # inferred topology (labeled inferred vs observed)
+airctl graph           # topology (observed connections vs inferred)
 airctl open <project>  # open the project directory
 airctl stop <pid>      # asks first; never SIGKILL by default
+airctl stop :3000      # stop whoever owns the port
+airctl stop shop       # stop that project's development services
+airctl complete bash   # print a shell completion script
 airctl refresh
 airctl doctor
 airctl config
@@ -80,6 +96,19 @@ airctl version
 Flags: `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--yes` `--force`.
 
 JSON output is a single document. Logs never mix into `--json`.
+
+Completions:
+
+```bash
+# bash
+eval "$(airctl complete bash)"
+# zsh
+eval "$(airctl complete zsh)"
+# fish
+airctl complete fish | source
+# powershell
+airctl complete powershell | Out-String | Invoke-Expression
+```
 
 ## Web UI
 
@@ -107,17 +136,19 @@ Domain logic does not depend on React. The CLI does not contain discovery rules.
 
 Platform backends:
 
-| Area      | Linux               | macOS         | Windows                                    |
-| --------- | ------------------- | ------------- | ------------------------------------------ |
-| Processes | `/proc`             | `ps` + `lsof` | CIM / `tasklist`                           |
-| Sockets   | `/proc/net/tcp{,6}` | `lsof`        | `netstat -ano`                             |
-| CWD       | `/proc/pid/cwd`     | `lsof -d cwd` | often unavailable without extra privileges |
+| Area      | Linux                      | macOS              | Windows                                                       |
+| --------- | -------------------------- | ------------------ | ------------------------------------------------------------- |
+| Processes | `/proc`                    | `ps` + `lsof`      | CIM / `tasklist`                                              |
+| Sockets   | `/proc/net/tcp{,6}` + UDP  | `lsof` TCP/UDP     | `netstat -ano` (TCP, UDP, IPv6)                               |
+| CWD       | `/proc/pid/cwd`            | `lsof -d cwd`      | command-line inference, then PEB for listeners when permitted |
+| Forwards  | —                          | —                  | WSL/`wslrelay`, Hyper-V, `netsh interface portproxy`          |
+| Graph     | established TCP in `/proc` | `lsof` ESTABLISHED | `netstat` ESTABLISHED to localhost                            |
 
 If something cannot be inspected, AirCtl degrades: `Permission limited`, `Unavailable on this platform`, or `Unknown`. It does not crash the scan.
 
 ## Permissions
 
-AirCtl does **not** require root or Administrator. Some process fields (especially working directories on macOS/Windows) may be incomplete without extra access. `airctl doctor` reports this.
+AirCtl does **not** require root or Administrator. Working directories on Windows are inferred from command lines when the OS will not expose them, and listener PIDs are queried via the process PEB when permitted. `airctl doctor` reports how complete the scan was.
 
 ## Privacy
 
