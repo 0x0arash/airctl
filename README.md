@@ -102,6 +102,16 @@ npm install && npm run build
 node dist/cli.js status
 ```
 
+## Agent support
+
+AirCtl ships an [agent skill](skills/airctl/SKILL.md) that teaches coding agents to diagnose port conflicts and stop local dev services safely — prefer `airctl explain` over `lsof`/`kill -9`, use `--json` for parsing, and require `--yes` before stopping in non-interactive sessions.
+
+```bash
+npx skills add 0x0arash/airctl@airctl -y
+```
+
+The skill is also bundled in the npm package under `skills/airctl/` for tools that discover skills from dependencies.
+
 ## CLI reference
 
 ```bash
