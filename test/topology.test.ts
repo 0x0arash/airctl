@@ -36,6 +36,70 @@ describe("topology inference", () => {
     assert.ok(inferred.some((e) => e.from === "api" && e.to === "db"));
     assert.ok(graph.edges.some((e) => e.kind === "observed" && e.from === shop.id));
   });
+
+  it("promotes localhost TCP connections to observed edges", () => {
+    const services = [
+      svc({
+        id: "fe",
+        name: "Vite",
+        processId: 10,
+        socketIds: ["s5173"],
+        classification: "development-server",
+      }),
+      svc({
+        id: "api",
+        name: "api",
+        processId: 11,
+        socketIds: ["s8080"],
+        classification: "development-server",
+      }),
+    ];
+    const sockets: ListeningSocket[] = [
+      {
+        id: "s5173",
+        address: "127.0.0.1",
+        port: 5173,
+        protocol: "tcp",
+        pid: 10,
+        family: "ipv4",
+        bindAddress: "127.0.0.1",
+        scope: "loopback",
+      },
+      {
+        id: "s8080",
+        address: "127.0.0.1",
+        port: 8080,
+        protocol: "tcp",
+        pid: 11,
+        family: "ipv4",
+        bindAddress: "127.0.0.1",
+        scope: "loopback",
+      },
+    ];
+    const graph = inferTopology({
+      services,
+      processes: [
+        { pid: 10, availability: "ok" },
+        { pid: 11, availability: "ok" },
+      ],
+      sockets,
+      projects: [],
+      connections: [
+        {
+          localAddress: "127.0.0.1",
+          localPort: 54321,
+          remoteAddress: "127.0.0.1",
+          remotePort: 8080,
+          protocol: "tcp",
+          pid: 10,
+          family: "ipv4",
+        },
+      ],
+    });
+    const edge = graph.edges.find((e) => e.from === "fe" && e.to === "api");
+    assert.equal(edge?.kind, "observed");
+    assert.match(edge?.reason ?? "", /localhost:8080/);
+  });
 });
 
 describe("orphan detection", () => {
