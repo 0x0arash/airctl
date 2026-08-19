@@ -32,7 +32,7 @@ Your laptop has a network. AirCtl lets you **see it, understand it, and control 
 
 ![`npx airctl status` in a terminal](docs/images/status.svg)
 
-[Install](#install) · [GitHub](https://github.com/0x0arash/airctl) · [Web UI](#web-ui)
+[Install](#install) · [GitHub](https://github.com/0x0arash/airctl) · [Web UI](#web-ui) · [VS Code Extension](vscode-extension/)
 
 ---
 
@@ -152,10 +152,30 @@ Binds to `127.0.0.1:4114` by default. Views: overview, services, projects, topol
 
 Live updates use Server-Sent Events. The browser does not poll every second.
 
+## VS Code Extension
+
+Browse and control your local services without leaving the editor.
+
+```bash
+cd vscode-extension
+npm install && npm run compile
+```
+
+Install the `.vsix` with `code --install-extension vscode-extension/airctl-vscode-*.vsix`, or press **F5** from the `vscode-extension/` folder to launch the Extension Development Host.
+
+- **Status bar** — service count at a glance
+- **Sidebar tree view** — projects, services, and ports in the activity bar
+- **Explain Port** — right-click a port in your code or use the command palette
+- **Stop Service** — stop a service directly from the tree view
+
+Settings: `airctl.path` (binary path, auto-detected by default) and `airctl.refreshInterval` (polling interval in seconds).
+
+See the [extension README](vscode-extension/README.md) for details.
+
 ## How it works
 
 ```text
-CLI / TUI / Web
+CLI / TUI / Web / VS Code
         │
    Application core
         │
