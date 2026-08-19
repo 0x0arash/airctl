@@ -20,6 +20,7 @@ Thanks for helping. AirCtl should stay **fast, trustworthy, and locally private*
 - `src/projects`, `src/detectors`, `src/classification` — inference
 - `src/engine` — orchestration
 - `src/cli`, `src/tui`, `src/server`, `web` — presentation
+- `vscode-extension` — VS Code extension (separate `package.json`, bundled with esbuild)
 
 Keep domain logic out of React and out of CLI formatting.
 
