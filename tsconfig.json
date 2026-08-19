@@ -6,6 +6,7 @@
     "moduleResolution": "Node16",
     "rootDir": "src",
     "outDir": "dist",
+    "resolveJsonModule": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
