@@ -1,5 +1,7 @@
 # AirCtl
 
+[![npm version](https://badgen.net/npm/v/airctl)](https://www.npmjs.com/package/airctl) [![npm downloads](https://badgen.net/npm/dm/airctl)](https://www.npmjs.com/package/airctl) [![license](https://badgen.net/github/license/0x0arash/airctl)](LICENSE) [![node](https://badgen.net/npm/node/airctl)](https://nodejs.org)
+
 **What the hell is using port 3000?**
 
 ```bash
