@@ -27,6 +27,7 @@ Keep domain logic out of React and out of CLI formatting.
 ## Rules of the road
 
 - No telemetry, no cloud, no secret logging.
+- Prefer Node built-ins; runtime dependencies should stay at zero.
 - Never `exec` interpolated strings. Spawn argument arrays.
 - Treat process disappearance as normal, not fatal.
 - Label inference as inferred.
