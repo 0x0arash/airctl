@@ -290,10 +290,11 @@ function isEntrypoint(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
   try {
-    return path.normalize(fileURLToPath(import.meta.url)) === path.normalize(entry);
+    if (path.normalize(fileURLToPath(import.meta.url)) === path.normalize(entry)) return true;
   } catch {
-    return entry.endsWith("cli.js") || entry.endsWith("cli.ts");
+    /* fileURLToPath may throw for non-file: URLs */
   }
+  return entry.endsWith("cli.js") || entry.endsWith("cli.ts");
 }
 
 if (isEntrypoint()) {
