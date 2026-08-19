@@ -78,7 +78,7 @@ shop             Postgres      5432        ● healthy
 
 ## Install
 
-Requires **Node.js 22.14+**.
+Requires **Node.js 22.14+**. The published package has **zero runtime npm dependencies** — `npm install -g airctl` installs only AirCtl (the web UI is bundled at build time).
 
 **Try instantly** — no install needed:
 
@@ -217,6 +217,7 @@ AirCtl does **not** require root or Administrator. `airctl doctor` reports how c
 AirCtl does not send your data anywhere.
 
 - no cloud service, no telemetry, no analytics, no accounts, no external API calls
+- zero runtime npm dependencies — no transitive package tree to audit or supply-chain surprises
 
 Environment variables are never displayed by default and never persisted. Command lines are redacted when they look like they contain secrets.
 
