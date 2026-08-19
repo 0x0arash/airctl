@@ -2,7 +2,7 @@
   "name": "airctl-vscode",
   "displayName": "AirCtl",
   "description": "Air traffic control for localhost — discover, inspect, and control local development services from VS Code.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "0x0arash",
   "license": "MIT",
   "repository": {
