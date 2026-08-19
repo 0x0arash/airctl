@@ -39,6 +39,9 @@ import { ancestorsOf } from "../process/tree.js";
 import { parsePortArg } from "../network/parse.js";
 import type { Logger } from "../logging/logger.js";
 import { createLogger } from "../logging/logger.js";
+import { USER_AGENT } from "../version.js";
+import { attachInferredCwds } from "../process/windows.js";
+import { enrichWindowsListenerCwds } from "../process/windows-cwd.js";
 
 export interface EngineDeps {
   runtime: Runtime;
@@ -82,7 +85,7 @@ export class DiscoveryEngine {
         enabled: (deps.config ?? defaultConfig).health.enabled,
         tcpTimeoutMs: 400,
         httpTimeoutMs: 1200,
-        userAgent: "AirCtl/0.1.0 (local-health-check)",
+        userAgent: USER_AGENT,
       });
     this.containers = deps.containers ?? new DockerCliProvider(deps.runtime.commands);
     this.store = deps.store ?? new MemorySnapshotStore();
@@ -117,14 +120,29 @@ export class DiscoveryEngine {
 
   private async scanUnsynchronized(): Promise<Snapshot> {
     const started = this.runtime.clock.nowMs();
-    const [processResult, socketResult, dockerAvail] = await Promise.all([
+    const [processRaw, dockerAvail] = await Promise.all([
       this.safe("processes", () => this.processes.listProcesses(), [] as ProcessInfo[]),
-      this.safe("sockets", () => this.sockets.listListeningSockets(), [] as ListeningSocket[]),
       this.safe("docker", () => this.containers.available(), {
         ok: false,
         detail: "Docker integration unavailable",
       }),
     ]);
+
+    let processResult = attachInferredCwds(processRaw);
+    const network = await this.safe("sockets", () => this.sockets.discover(processResult), {
+      listening: [] as ListeningSocket[],
+      connections: [],
+    });
+    const socketResult = network.listening;
+    const connections = network.connections;
+
+    if (this.runtime.platform === "win32") {
+      processResult = await this.safe(
+        "cwd",
+        () => enrichWindowsListenerCwds(this.runtime.commands, processResult, socketResult),
+        processResult,
+      );
+    }
 
     const containers = dockerAvail.ok
       ? await this.safe("containers", () => this.containers.listContainers(), [])
@@ -198,6 +216,7 @@ export class DiscoveryEngine {
       sockets: socketResult,
       projects,
       containers,
+      connections,
     });
 
     const capabilities = await this.capabilities(processResult, socketResult, dockerAvail);
@@ -226,6 +245,7 @@ export class DiscoveryEngine {
       durationMs,
       processes: processResult,
       sockets: socketResult,
+      connections,
       projects,
       services,
       warnings,
@@ -271,13 +291,17 @@ export class DiscoveryEngine {
     const parent =
       processInfo?.parentPid !== undefined ? byPid.get(processInfo.parentPid) : undefined;
 
-    const likelyIssue = inferIssue(service, processInfo, snapshot);
+    const likelyIssue = inferIssue(service, processInfo, snapshot, sockets);
     const actions: string[] = [];
     if (processInfo) {
+      actions.push(`airctl stop :${port}`);
       actions.push(`airctl stop ${processInfo.pid}`);
       actions.push(`airctl inspect ${processInfo.pid}`);
     }
-    if (project) actions.push(`airctl open ${project.name}`);
+    if (project) {
+      actions.push(`airctl stop ${project.name}`);
+      actions.push(`airctl open ${project.name}`);
+    }
 
     return {
       port,
@@ -354,8 +378,18 @@ export class DiscoveryEngine {
     sockets: ListeningSocket[],
     dockerAvail: { ok: boolean; detail: string },
   ): Promise<CapabilityReport> {
-    const cwdOk = processes.some((p) => Boolean(p.cwd));
+    const cwdObserved = processes.filter((p) => p.cwd && p.cwdKind !== "inferred").length;
+    const cwdInferred = processes.filter((p) => p.cwdKind === "inferred").length;
+    const forwarded = sockets.filter((s) => s.forwarded).length;
     const limited = processes.some((p) => p.availability === "permission-limited");
+    let cwdDetail = "Working directories unavailable";
+    if (cwdObserved > 0 && cwdInferred > 0) {
+      cwdDetail = `${cwdObserved} observed, ${cwdInferred} inferred from command lines`;
+    } else if (cwdObserved > 0) {
+      cwdDetail = "Working directories available";
+    } else if (cwdInferred > 0) {
+      cwdDetail = `${cwdInferred} inferred from command lines`;
+    }
     return {
       processDiscovery: {
         ok: processes.length > 0,
@@ -368,9 +402,19 @@ export class DiscoveryEngine {
           sockets.length > 0 ? `${sockets.length} listeners` : "No listening sockets discovered",
       },
       cwdInspection: {
-        ok: cwdOk,
-        limited: !cwdOk,
-        detail: cwdOk ? "Working directories available" : "Working directories unavailable",
+        ok: cwdObserved > 0 || cwdInferred > 0,
+        limited: cwdObserved === 0,
+        detail: cwdDetail,
+      },
+      wslForwarding: {
+        ok: true,
+        limited: forwarded === 0 && this.runtime.platform === "win32",
+        detail:
+          forwarded > 0
+            ? `${forwarded} WSL/portproxy forwarded port${forwarded === 1 ? "" : "s"}`
+            : this.runtime.platform === "win32"
+              ? "No WSL or portproxy forwards detected"
+              : "Not applicable",
       },
       sqlite: { ok: true, detail: "Local cache enabled" },
       docker: dockerAvail,
@@ -409,7 +453,12 @@ function inferIssue(
   service: Service | undefined,
   processInfo: ProcessInfo | undefined,
   snapshot: Snapshot,
+  sockets: ListeningSocket[],
 ): string | undefined {
+  const forwarded = sockets.find((s) => s.forwarded)?.forwarded;
+  if (forwarded) {
+    return forwarded.detail;
+  }
   if (service?.health === "orphaned") return service.orphanReason ?? "This process looks orphaned.";
   if (service?.health === "unhealthy") return "The process is alive but the health check failed.";
   const publicSock = snapshot.sockets.find(

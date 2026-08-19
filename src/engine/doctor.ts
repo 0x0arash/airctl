@@ -24,6 +24,12 @@ export async function runDoctor(engine: DiscoveryEngine): Promise<DoctorReport> 
       limited: caps.cwdInspection.limited,
       detail: caps.cwdInspection.detail,
     },
+    {
+      name: "WSL / port forwarding",
+      ok: caps.wslForwarding.ok,
+      limited: caps.wslForwarding.limited,
+      detail: caps.wslForwarding.detail,
+    },
     { name: "SQLite", ok: caps.sqlite.ok, detail: caps.sqlite.detail },
     {
       name: "Docker integration",
