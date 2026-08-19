@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] — 2026-08-19
+
+### Added
+
+- **VS Code extension** (`vscode-extension/`): status bar with service count, sidebar tree view (projects/services/ports), "Explain Port" command with editor context menu, and "Stop Service" action. Auto-detects the local CLI build; falls back to a global `airctl` install.
+- Release workflow now publishes the VS Code extension to Open VSX alongside the npm package.
+
 ## [0.1.2] — 2026-08-19
 
 ### Added
