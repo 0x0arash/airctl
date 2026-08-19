@@ -1,5 +1,6 @@
 import type {
   ContainerInfo,
+  EstablishedConnection,
   ListeningSocket,
   ProcessInfo,
   Project,
@@ -8,6 +9,7 @@ import type {
   TopologyGraph,
   TopologyNode,
 } from "../domain/types.js";
+import { connectionTargetsListener, isLocalhostConnection } from "../network/connections.js";
 
 export function inferTopology(input: {
   services: Service[];
@@ -15,6 +17,7 @@ export function inferTopology(input: {
   sockets: ListeningSocket[];
   projects: Project[];
   containers?: ContainerInfo[];
+  connections?: EstablishedConnection[];
 }): TopologyGraph {
   const nodes: TopologyNode[] = [];
   const edges: TopologyEdge[] = [];
@@ -116,6 +119,29 @@ export function inferTopology(input: {
     }
   }
 
+  for (const connection of input.connections ?? []) {
+    if (!isLocalhostConnection(connection) || connection.pid === undefined) continue;
+    const sources = input.services.filter((s) => s.processId === connection.pid);
+    if (sources.length === 0) continue;
+    const targets = input.services.filter((service) =>
+      input.sockets.some(
+        (socket) =>
+          service.socketIds.includes(socket.id) && connectionTargetsListener(connection, socket),
+      ),
+    );
+    for (const source of sources) {
+      for (const target of targets) {
+        if (source.id === target.id) continue;
+        edges.push({
+          from: source.id,
+          to: target.id,
+          kind: "observed",
+          reason: `TCP connection to localhost:${connection.remotePort}`,
+        });
+      }
+    }
+  }
+
   for (const container of input.containers ?? []) {
     if (!container.composeProject) continue;
     const related = input.services.filter((s) => s.containerId === container.id);
@@ -143,13 +169,23 @@ function commandReferencesPort(command: string, port: number): boolean {
 }
 
 function dedupeEdges(edges: TopologyEdge[]): TopologyEdge[] {
-  const seen = new Set<string>();
-  const out: TopologyEdge[] = [];
+  const byPair = new Map<string, TopologyEdge[]>();
   for (const edge of edges) {
-    const key = `${edge.from}->${edge.to}:${edge.reason}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(edge);
+    const key = `${edge.from}->${edge.to}`;
+    const list = byPair.get(key) ?? [];
+    list.push(edge);
+    byPair.set(key, list);
+  }
+  const out: TopologyEdge[] = [];
+  for (const group of byPair.values()) {
+    const observed = group.filter((e) => e.kind === "observed");
+    const preferred = observed.length > 0 ? observed : group;
+    const seen = new Set<string>();
+    for (const edge of preferred) {
+      if (seen.has(edge.reason)) continue;
+      seen.add(edge.reason);
+      out.push(edge);
+    }
   }
   return out;
 }
