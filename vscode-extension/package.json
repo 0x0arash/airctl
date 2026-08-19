@@ -1,0 +1,124 @@
+{
+  "name": "airctl-vscode",
+  "displayName": "AirCtl",
+  "description": "Air traffic control for localhost — discover, inspect, and control local development services from VS Code.",
+  "version": "0.1.2",
+  "publisher": "0x0arash",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0x0arash/airctl.git",
+    "directory": "vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ports",
+    "processes",
+    "localhost",
+    "developer-tools"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "icon.png",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "airctl",
+          "title": "AirCtl",
+          "icon": "$(radio-tower)"
+        }
+      ]
+    },
+    "views": {
+      "airctl": [
+        {
+          "id": "airctl.services",
+          "name": "Services"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "airctl.services",
+        "contents": "No services found.\n\nMake sure airctl is installed and on your PATH.\n[Install airctl](https://github.com/0x0arash/airctl)\n\n[Refresh](command:airctl.refresh)"
+      }
+    ],
+    "commands": [
+      {
+        "command": "airctl.refresh",
+        "title": "AirCtl: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "airctl.explainPort",
+        "title": "AirCtl: Explain Port"
+      },
+      {
+        "command": "airctl.stopService",
+        "title": "AirCtl: Stop Service",
+        "icon": "$(debug-stop)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "airctl.refresh",
+          "when": "view == airctl.services",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "airctl.stopService",
+          "when": "view == airctl.services && viewItem == service",
+          "group": "inline"
+        },
+        {
+          "command": "airctl.explainPort",
+          "when": "view == airctl.services && viewItem == port"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "airctl.explainPort",
+          "group": "airctl"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AirCtl",
+      "properties": {
+        "airctl.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the airctl binary. Leave empty to auto-detect."
+        },
+        "airctl.refreshInterval": {
+          "type": "number",
+          "default": 10,
+          "minimum": 2,
+          "description": "Auto-refresh interval in seconds."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.130",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.3.2",
+    "esbuild": "^0.25.12"
+  }
+}
