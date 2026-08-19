@@ -1,4 +1,4 @@
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.2";
 export const APP_NAME = "airctl";
 export const USER_AGENT = `AirCtl/${VERSION} (local-health-check)`;
 export const DEFAULT_UI_PORT = 4114;
