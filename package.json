@@ -48,7 +48,7 @@
     "dev:ui": "tsx src/cli.ts ui",
     "prepare": "node scripts/install-hooks.mjs",
     "prepack": "npm run build",
-    "git:tag": "VERSION=$(node -p \"require('./package.json').version\") && git tag -a v$VERSION -m \"Release v$VERSION\""
+    "git:tag": "node -e \"var v=require('./package.json').version;require('child_process').execSync('git tag -a v'+v+' -m '+JSON.stringify('Release v'+v),{stdio:'inherit'})\""
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
