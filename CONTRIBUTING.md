@@ -31,6 +31,7 @@ Keep domain logic out of React and out of CLI formatting.
 - Label inference as inferred.
 - Prefer tests with fixtures and fakes over live-OS tests.
 - New detectors go in `src/detectors` as modules registered on `DetectorRegistry`.
+- `eval "$(airctl complete bash)"` (or `zsh` / `fish` / `powershell`) installs completions.
 
 ## Pull requests
 
