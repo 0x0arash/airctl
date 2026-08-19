@@ -51,7 +51,7 @@
     "git:tag": "node -e \"var v=require('./package.json').version;require('child_process').execSync('git tag -a v'+v+' -m '+JSON.stringify('Release v'+v),{stdio:'inherit'})\""
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.8.1",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^19.8.1",
     "@types/node": "^22.17.2",
     "@types/react": "^19.1.10",
