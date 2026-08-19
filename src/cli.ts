@@ -21,6 +21,8 @@ import { formatDoctor, runDoctor } from "./engine/doctor.js";
 import { formatConfig } from "./config/load.js";
 import { runWatchTui } from "./tui/watch.js";
 import { startServer } from "./server/http.js";
+import { completionScript } from "./cli/complete.js";
+import { resolveStopTargets } from "./control/targets.js";
 
 suppressSqliteExperimentalWarning();
 
@@ -191,19 +193,13 @@ async function stopCommand(
   flags: ReturnType<typeof parseArgv>["flags"],
   io: { stdout: NodeJS.WriteStream; stderr: NodeJS.WriteStream },
 ): Promise<number> {
-  const pidRaw = args[0];
-  if (!pidRaw || !/^\d+$/.test(pidRaw))
-    throw new AirCtlError("INVALID_INPUT", "Usage: airctl stop <pid>");
-  const pid = Number.parseInt(pidRaw, 10);
   const snapshot = app.engine.getSnapshot() ?? (await app.engine.scan());
-  const proc = snapshot.processes.find((p) => p.pid === pid) ?? (await app.engine.inspectPid(pid));
-  const sockets = snapshot.sockets.filter((s) => s.pid === pid);
+  const raw = flags.port ? `:${flags.port}` : args[0];
+  if (!raw) throw new AirCtlError("INVALID_INPUT", "Usage: airctl stop <pid|:port|project>");
+  const targets = resolveStopTargets(snapshot, raw);
   if (!flags.yes && io.stdout.isTTY) {
     io.stdout.write("Are you sure you want to stop:\n\n");
-    io.stdout.write(`PID ${pid}\n`);
-    io.stdout.write(`${proc.executable ?? "unknown"}\n`);
-    if (proc.cwd) io.stdout.write(`${proc.cwd}\n`);
-    for (const socket of sockets) io.stdout.write(`localhost:${socket.port}\n`);
+    for (const target of targets) io.stdout.write(`  ${target.label}\n`);
     io.stdout.write("\nType y to confirm.\n");
     const rl = createInterface({ input, output });
     const answer = (await rl.question("> ")).trim().toLowerCase();
@@ -218,9 +214,13 @@ async function stopCommand(
       "Refusing to stop a process without --yes in a non-interactive session.",
     );
   }
-  const result = await app.controller.stop({ pid, force: flags.force });
-  if (flags.json) io.stdout.write(`${JSON.stringify({ pid, ...result })}\n`);
-  else io.stdout.write(`Stopped PID ${pid} (${result.signal}).\n`);
+  const results = [];
+  for (const target of targets) {
+    const result = await app.controller.stop({ pid: target.pid, force: flags.force });
+    results.push({ pid: target.pid, ...result });
+    if (!flags.json) io.stdout.write(`Stopped PID ${target.pid} (${result.signal}).\n`);
+  }
+  if (flags.json) io.stdout.write(`${JSON.stringify({ stopped: results })}\n`);
   return 0;
 }
 
@@ -269,15 +269,6 @@ function handleError(
   if (error instanceof Error && error.message.startsWith("Unknown flag")) return 2;
   if (error instanceof Error && error.message.startsWith("Invalid port")) return 2;
   return 1;
-}
-
-function completionScript(shell: string): string {
-  const commands =
-    "status scan explain inspect projects services graph open stop refresh doctor config ui tui logs version help";
-  if (shell === "zsh") {
-    return `#compdef airctl\n_arguments '1:command:((${commands.split(" ").join(" ")}) )'\n`;
-  }
-  return `complete -W "${commands}" airctl\n`;
 }
 
 function hang(): Promise<void> {

@@ -131,13 +131,14 @@ Commands:
   services               List services
   graph                  Show inferred service topology
   open <project>         Open a project directory
-  stop <pid>             Stop a process (asks first)
+  stop <pid|:port|name>  Stop a process, a port, or a project's services
   refresh                Refresh discovery cache
   doctor                 Diagnose AirCtl and the local environment
   config                 Show effective configuration
   ui                     Start the local web UI
   tui                    Interactive terminal view
   logs                   Show recent discovery activity
+  complete [shell]       Print bash/zsh/fish/powershell completions
   version                Print version
   help                   Show this help
 
