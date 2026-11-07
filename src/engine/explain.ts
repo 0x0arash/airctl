@@ -40,7 +40,8 @@ export function formatExplanation(expl: PortExplanation, nowMs: number): string 
       const label = formatEndpoint(socket.address, socket.port);
       const warn =
         socket.scope === "unspecified" || socket.scope === "public" ? "  ⚠ public interface" : "";
-      lines.push(`  ${label}${warn}`);
+      const forward = socket.forwarded ? `  → ${socket.forwarded.detail}` : "";
+      lines.push(`  ${label}${warn}${forward}`);
     }
     lines.push("");
   }

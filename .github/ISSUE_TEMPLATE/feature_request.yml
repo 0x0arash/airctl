@@ -1,0 +1,68 @@
+name: Feature request
+description: Suggest an improvement or new capability
+title: "[feat]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem you are trying to solve. AirCtl should stay **fast, trustworthy, and locally private** — no telemetry, no cloud dependencies.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain point or workflow gap does this address?
+      placeholder: When I have 10 stale dev servers, I can't quickly tell which ones are safe to stop.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like AirCtl to behave?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches, tools, or workarounds you have tried.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of AirCtl would this affect?
+      options:
+        - CLI
+        - Web UI
+        - VS Code extension
+        - Service detection / classification
+        - Platform support (Windows / macOS / Linux)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example usage
+      description: If this adds a command or flag, show what the UX could look like.
+      render: shell
+      placeholder: |
+        airctl status --stale
+        airctl stop --older-than 1h
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and discussions for duplicates
+          required: true
+        - label: This fits AirCtl's local-only, privacy-first scope
+          required: true

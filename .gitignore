@@ -12,3 +12,4 @@ coverage/
 .vscode/
 *.tsbuildinfo
 .lefthook-local.yml
+*.vsix
