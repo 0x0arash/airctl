@@ -1,5 +1,7 @@
 # AirCtl
 
+[![npm version](https://badgen.net/npm/v/airctl)](https://www.npmjs.com/package/airctl) [![npm downloads](https://badgen.net/npm/dm/airctl)](https://www.npmjs.com/package/airctl) [![runtime deps](https://badgen.net/badge/runtime%20deps/0/green)](https://bundlephobia.com/package/airctl) [![license](https://badgen.net/github/license/0x0arash/airctl)](LICENSE) [![node](https://badgen.net/npm/node/airctl)](https://nodejs.org)
+
 **What the hell is using port 3000?**
 
 ```bash
@@ -76,7 +78,7 @@ shop             Postgres      5432        ● healthy
 
 ## Install
 
-Requires **Node.js 22.14+**.
+Requires **Node.js 22.14+**. The published package has **zero runtime npm dependencies** — `npm install -g airctl` installs only AirCtl (the web UI is bundled at build time).
 
 **Try instantly** — no install needed:
 
@@ -91,6 +93,15 @@ npx airctl explain :3000
 npm install -g airctl
 ```
 
+On Linux (including Arch), discovery reads `/proc` directly; `lsof` and `netstat` are not required. Processes owned by other users may have limited details. Opening project folders requires `xdg-open` and a desktop session.
+
+If `airctl` exits silently, check `airctl --version`. Older releases could skip startup when invoked through a global-install symlink. After installing this fix, the command works through npm and Bun command symlinks. To diagnose an older installation, run its resolved entry point directly:
+
+```bash
+node "$(readlink -f "$(command -v airctl)")" --version
+node "$(readlink -f "$(command -v airctl)")" doctor
+```
+
 **From source:**
 
 ```bash
@@ -99,6 +110,16 @@ cd airctl
 npm install && npm run build
 node dist/cli.js status
 ```
+
+## Agent support
+
+AirCtl ships an [agent skill](skills/airctl/SKILL.md) that teaches coding agents to diagnose port conflicts and stop local dev services safely — prefer `airctl explain` over `lsof`/`kill -9`, use `--json` for parsing, and require `--yes` before stopping in non-interactive sessions.
+
+```bash
+npx skills add 0x0arash/airctl@airctl -y
+```
+
+The skill is also bundled in the npm package under `skills/airctl/` for tools that discover skills from dependencies.
 
 ## CLI reference
 
@@ -215,6 +236,7 @@ AirCtl does **not** require root or Administrator. `airctl doctor` reports how c
 AirCtl does not send your data anywhere.
 
 - no cloud service, no telemetry, no analytics, no accounts, no external API calls
+- zero runtime npm dependencies — no transitive package tree to audit or supply-chain surprises
 
 Environment variables are never displayed by default and never persisted. Command lines are redacted when they look like they contain secrets.
 

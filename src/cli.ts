@@ -2,7 +2,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
+import { realpathSync } from "node:fs";
 import { AirCtlError, isAirCtlError, toErrorPayload } from "./domain/errors.js";
 import { VERSION } from "./version.js";
 import { createApp, type AppContext } from "./engine/app.js";
@@ -34,8 +34,7 @@ export async function runCli(
   try {
     parsed = parseArgv(argv);
   } catch (error) {
-    io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    return 2;
+    return handleError(error, argv.includes("--json"), io);
   }
 
   if (parsed.flags.help || parsed.command === "help") {
@@ -53,18 +52,18 @@ export async function runCli(
     return 0;
   }
 
-  const app = await createApp({
-    verbose: parsed.flags.verbose,
-    configPath: parsed.flags.config,
-    json: parsed.flags.json,
-  });
-
+  let app: AppContext | undefined;
   try {
+    app = await createApp({
+      verbose: parsed.flags.verbose,
+      configPath: parsed.flags.config,
+      json: parsed.flags.json,
+    });
     return await dispatch(app, parsed.command, parsed.args, parsed.flags, io);
   } catch (error) {
     return handleError(error, parsed.flags.json, io);
   } finally {
-    await app.engine.close();
+    await app?.engine.close();
   }
 }
 
@@ -243,7 +242,13 @@ async function openCommand(
       : app.runtime.platform === "win32"
         ? "explorer.exe"
         : "xdg-open";
-  await app.runtime.commands.run(opener, [project.root]);
+  const result = await app.runtime.commands.run(opener, [project.root]);
+  if (result.code !== 0 || result.timedOut) {
+    throw new AirCtlError(
+      result.timedOut ? "TIMEOUT" : "DEPENDENCY_UNAVAILABLE",
+      `Could not open ${project.root} using ${opener}. ${result.stderr.trim() || "Check that a desktop file opener is installed and available."}`,
+    );
+  }
   if (json) io.stdout.write(`${JSON.stringify({ opened: project.root })}\n`);
   else io.stdout.write(`Opened ${project.root}\n`);
   return 0;
@@ -290,19 +295,20 @@ function isEntrypoint(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
   try {
-    if (path.normalize(fileURLToPath(import.meta.url)) === path.normalize(entry)) return true;
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
   } catch {
-    /* fileURLToPath may throw for non-file: URLs */
+    return false;
   }
-  return entry.endsWith("cli.js") || entry.endsWith("cli.ts");
 }
 
 if (isEntrypoint()) {
   runCli(process.argv.slice(2)).then(
-    (code) => process.exit(code),
+    (code) => {
+      process.exitCode = code;
+    },
     (error) => {
       console.error(error);
-      process.exit(1);
+      process.exitCode = 1;
     },
   );
 }
