@@ -93,6 +93,15 @@ npx airctl explain :3000
 npm install -g airctl
 ```
 
+On Linux (including Arch), discovery reads `/proc` directly; `lsof` and `netstat` are not required. Processes owned by other users may have limited details. Opening project folders requires `xdg-open` and a desktop session.
+
+If `airctl` exits silently, check `airctl --version`. Older releases could skip startup when invoked through a global-install symlink. After installing this fix, the command works through npm and Bun command symlinks. To diagnose an older installation, run its resolved entry point directly:
+
+```bash
+node "$(readlink -f "$(command -v airctl)")" --version
+node "$(readlink -f "$(command -v airctl)")" doctor
+```
+
 **From source:**
 
 ```bash
