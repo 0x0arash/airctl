@@ -86,6 +86,7 @@ describe("redaction and serialization", () => {
         processDiscovery: { ok: true, detail: "ok" },
         socketDiscovery: { ok: true, detail: "ok" },
         cwdInspection: { ok: true, detail: "ok" },
+        wslForwarding: { ok: true, detail: "n/a" },
         sqlite: { ok: true, detail: "ok" },
         docker: { ok: false, detail: "unavailable" },
         httpHealth: { ok: true, detail: "ok" },

@@ -1,42 +1,60 @@
 import type { Runtime } from "../runtime/index.js";
-import type { ListeningSocket } from "../domain/types.js";
-import { listLinuxSockets } from "./linux.js";
-import { listDarwinSockets } from "./darwin.js";
-import { listWindowsSockets } from "./windows.js";
+import type { EstablishedConnection, ListeningSocket, ProcessInfo } from "../domain/types.js";
+import { listLinuxNetwork } from "./linux.js";
+import { listDarwinNetwork } from "./darwin.js";
+import { listWindowsNetwork } from "./windows.js";
+
+export interface NetworkDiscovery {
+  listening: ListeningSocket[];
+  connections: EstablishedConnection[];
+}
 
 export interface SocketProvider {
+  discover(processes?: ProcessInfo[]): Promise<NetworkDiscovery>;
   listListeningSockets(): Promise<ListeningSocket[]>;
 }
 
 export class PlatformSocketProvider implements SocketProvider {
   constructor(private readonly runtime: Runtime) {}
 
-  async listListeningSockets(): Promise<ListeningSocket[]> {
+  async discover(processes: ProcessInfo[] = []): Promise<NetworkDiscovery> {
     try {
       switch (this.runtime.platform) {
         case "linux":
-          return await listLinuxSockets(this.runtime.fs);
+          return await listLinuxNetwork(this.runtime.fs);
         case "darwin":
-          return await listDarwinSockets(this.runtime.commands);
+          return await listDarwinNetwork(this.runtime.commands);
         case "win32":
-          return await listWindowsSockets(this.runtime.commands);
+          return await listWindowsNetwork(this.runtime.commands, processes);
         default:
-          return [];
+          return { listening: [], connections: [] };
       }
     } catch {
-      return [];
+      return { listening: [], connections: [] };
     }
+  }
+
+  async listListeningSockets(): Promise<ListeningSocket[]> {
+    return (await this.discover()).listening;
   }
 }
 
 export class StaticSocketProvider implements SocketProvider {
-  constructor(private sockets: ListeningSocket[] = []) {}
+  constructor(
+    private sockets: ListeningSocket[] = [],
+    private connections: EstablishedConnection[] = [],
+  ) {}
+
+  async discover(): Promise<NetworkDiscovery> {
+    return { listening: this.sockets, connections: this.connections };
+  }
 
   async listListeningSockets(): Promise<ListeningSocket[]> {
     return this.sockets;
   }
 
-  set(sockets: ListeningSocket[]): void {
+  set(sockets: ListeningSocket[], connections: EstablishedConnection[] = []): void {
     this.sockets = sockets;
+    this.connections = connections;
   }
 }

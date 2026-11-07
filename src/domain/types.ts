@@ -34,11 +34,19 @@ export interface ProcessInfo {
   executablePath?: string;
   command?: string;
   cwd?: string;
+  cwdKind?: EvidenceKind;
   user?: string;
   startedAt?: string;
   cpuPercent?: number;
   memoryBytes?: number;
   availability: Availability;
+}
+
+export interface PortForward {
+  kind: "wsl" | "portproxy" | "hyperv" | "docker";
+  targetAddress?: string;
+  targetPort?: Port;
+  detail: string;
 }
 
 export interface ListeningSocket {
@@ -50,6 +58,17 @@ export interface ListeningSocket {
   family: AddressFamily;
   bindAddress: string;
   scope: BindScope;
+  forwarded?: PortForward;
+}
+
+export interface EstablishedConnection {
+  localAddress: string;
+  localPort: Port;
+  remoteAddress: string;
+  remotePort: Port;
+  protocol: TransportProtocol;
+  pid?: ProcessId;
+  family: AddressFamily;
 }
 
 export interface Project {
@@ -128,6 +147,7 @@ export interface CapabilityReport {
   processDiscovery: CapabilityStatus;
   socketDiscovery: CapabilityStatus;
   cwdInspection: CapabilityStatus;
+  wslForwarding: CapabilityStatus;
   sqlite: CapabilityStatus;
   docker: CapabilityStatus;
   httpHealth: CapabilityStatus;
@@ -162,6 +182,7 @@ export interface Snapshot {
   durationMs: number;
   processes: ProcessInfo[];
   sockets: ListeningSocket[];
+  connections?: EstablishedConnection[];
   projects: Project[];
   services: Service[];
   warnings: Warning[];

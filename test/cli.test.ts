@@ -69,3 +69,65 @@ describe("cli help and explain formatting", () => {
     assert.match(text, /AIRCTL DOCTOR/);
   });
 });
+
+// Exercise the actual entry point, including package-manager-style command links.
+describe("CLI invocation", () => {
+  it("runs through a symlink named airctl", async () => {
+    const { mkdtemp, symlink, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const path = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const { execFileSync } = await import("node:child_process");
+    const dir = await mkdtemp(path.join(tmpdir(), "airctl-cli-"));
+    try {
+      const link = path.join(dir, "airctl");
+      await symlink(fileURLToPath(new URL("../src/cli.ts", import.meta.url)), link);
+      const output = execFileSync(process.execPath, ["--import", "tsx", link, "--version"], {
+        encoding: "utf8",
+      });
+      assert.match(output, /^airctl \d+\.\d+\.\d+\n$/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects malformed flags and unknown commands before discovery", () => {
+    for (const args of [
+      ["--config"],
+      ["--config="],
+      ["--project", "--json"],
+      ["--port", "70000"],
+      ["--port", "abc"],
+      ["statsu"],
+    ]) {
+      assert.throws(() => parseArgv(args));
+    }
+  });
+
+  it("returns structured errors for invalid arguments and startup failures", async () => {
+    const { runCli } = await import("../src/cli.js");
+    let stdout = "";
+    let stderr = "";
+    const io = {
+      stdout: {
+        write: (text: string) => {
+          stdout += text;
+        },
+      },
+      stderr: {
+        write: (text: string) => {
+          stderr += text;
+        },
+      },
+    } as unknown as { stdout: NodeJS.WriteStream; stderr: NodeJS.WriteStream };
+    for (const args of [
+      ["--json", "--oops"],
+      ["--json", "--config", "/nonexistent/airctl-test.json"],
+    ]) {
+      stdout = "";
+      assert.equal(await runCli(args, io), 2);
+      assert.equal(JSON.parse(stdout).error.code, "INVALID_INPUT");
+      assert.equal(stderr, "");
+    }
+  });
+});

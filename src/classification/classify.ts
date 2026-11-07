@@ -6,7 +6,7 @@ import type {
 } from "../domain/types.js";
 import { serviceIdFor } from "../domain/ids.js";
 import type { DetectorRegistry } from "../detectors/index.js";
-import { projectByCwd } from "../projects/index.js";
+import { projectForProcess } from "../projects/index.js";
 import type { Project } from "../domain/types.js";
 
 const SYSTEM_PROCESS_NAMES = new Set([
@@ -70,7 +70,7 @@ function classifyProcessService(
   detectors: DetectorRegistry,
 ): Service {
   const ports = sockets.map((s) => s.port);
-  const project = proc ? projectByCwd(projects, proc.cwd) : undefined;
+  const project = proc ? projectForProcess(projects, proc) : undefined;
   const executable = baseName(proc?.executable ?? proc?.executablePath ?? "unknown");
   const command = proc?.command ?? executable;
   const processForDetect: ProcessInfo = proc ?? {

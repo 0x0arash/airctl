@@ -1,3 +1,4 @@
+import { AirCtlError } from "../domain/errors.js";
 import path from "node:path";
 import type { FileSystemProvider } from "../runtime/fs.js";
 import { expandHome } from "../projects/detect.js";
@@ -67,6 +68,9 @@ export async function loadConfig(
     if (text === undefined) continue;
     const parsed = parseConfigText(text, candidate);
     return { config: mergeConfig(defaultConfig, parsed, home), path: candidate };
+  }
+  if (explicitPath) {
+    throw new AirCtlError("INVALID_INPUT", `Cannot read config file: ${explicitPath}`);
   }
   return { config: defaultConfig };
 }

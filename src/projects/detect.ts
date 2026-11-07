@@ -2,6 +2,7 @@ import type { FileSystemProvider } from "../runtime/fs.js";
 import type { ProcessInfo, Project } from "../domain/types.js";
 import { projectIdFor } from "../domain/ids.js";
 import { FRAMEWORK_FILES, MAX_ANCESTOR_WALK, PROJECT_MARKERS } from "./markers.js";
+import { collectPathCandidates, inferCwdFromCommand } from "../process/cwd.js";
 
 export interface ProjectDetector {
   detectFromProcesses(processes: ProcessInfo[], extraRoots?: string[]): Promise<Project[]>;
@@ -19,6 +20,9 @@ export class FilesystemProjectDetector implements ProjectDetector {
     for (const proc of processes) {
       if (proc.cwd) seeds.add(proc.cwd);
       if (proc.executablePath) seeds.add(this.fs.dirname(proc.executablePath));
+      const inferred = inferCwdFromCommand(proc.command, proc.executablePath);
+      if (inferred) seeds.add(inferred);
+      for (const path of collectPathCandidates(proc.command, proc.executablePath)) seeds.add(path);
     }
     for (const root of extraRoots)
       seeds.add(expandHome(root, this.fs.homeDir(), this.fs.join.bind(this.fs)));
@@ -118,4 +122,15 @@ export function projectByCwd(projects: Project[], cwd: string | undefined): Proj
   });
   matches.sort((a, b) => b.root.length - a.root.length);
   return matches[0];
+}
+
+export function projectForProcess(
+  projects: Project[],
+  proc: ProcessInfo | undefined,
+): Project | undefined {
+  if (!proc) return undefined;
+  return (
+    projectByCwd(projects, proc.cwd) ??
+    projectByCwd(projects, inferCwdFromCommand(proc.command, proc.executablePath))
+  );
 }

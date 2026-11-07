@@ -310,6 +310,24 @@ export const builtinDetectors: Detector[] = [
     },
   },
   {
+    id: "wsl",
+    detect(ctx): DetectionHit | undefined {
+      const name = ctx.executable.toLowerCase().replace(/\.exe$/, "");
+      if (
+        !/^(wslrelay|wslhost|wsl|vmmemwsl)$/.test(name) &&
+        !/\bwslrelay\b|\bwslhost\b/.test(cmd(ctx))
+      ) {
+        return undefined;
+      }
+      return {
+        name: "WSL",
+        confidence: 0.9,
+        evidence: ["WSL/Hyper-V localhost relay"],
+        classification: "proxy",
+      };
+    },
+  },
+  {
     id: "node",
     detect(ctx): DetectionHit | undefined {
       const exec = ctx.executable.toLowerCase();

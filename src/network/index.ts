@@ -9,6 +9,7 @@ export {
 } from "./parse.js";
 export { PlatformSocketProvider, StaticSocketProvider } from "./provider.js";
 export type { SocketProvider } from "./provider.js";
-export { parseProcNet } from "./linux.js";
-export { parseLsofFields, parseLsofTable, parseLsofName } from "./darwin.js";
+export { parseProcNet, parseProcNetEstablished } from "./linux.js";
+export { parseLsofFields, parseLsofTable, parseLsofName, parseLsofConnections } from "./darwin.js";
 export { parseNetstat, parseWindowsLocal } from "./windows.js";
+export { parseNetshPortProxy, isWslHelperName } from "./portproxy.js";

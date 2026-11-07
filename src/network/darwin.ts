@@ -1,19 +1,40 @@
 import type { CommandRunner } from "../runtime/spawn.js";
-import type { ListeningSocket } from "../domain/types.js";
+import type { EstablishedConnection, ListeningSocket, TransportProtocol } from "../domain/types.js";
 import { socketIdFor } from "../domain/ids.js";
 import { bindScope, familyOf, parsePort } from "./parse.js";
 
 export async function listDarwinSockets(commands: CommandRunner): Promise<ListeningSocket[]> {
-  const result = await commands.run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcn"]);
-  if (result.code !== 0) {
-    const fallback = await commands.run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"]);
-    if (fallback.code !== 0) return [];
-    return parseLsofTable(fallback.stdout);
-  }
-  return parseLsofFields(result.stdout);
+  return (await listDarwinNetwork(commands)).listening;
 }
 
-export function parseLsofFields(text: string): ListeningSocket[] {
+export async function listDarwinNetwork(commands: CommandRunner): Promise<{
+  listening: ListeningSocket[];
+  connections: EstablishedConnection[];
+}> {
+  const [tcpListen, udp, established] = await Promise.all([
+    commands.run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcn"]),
+    commands.run("lsof", ["-nP", "-iUDP", "-F", "pcn"]),
+    commands.run("lsof", ["-nP", "-iTCP", "-sTCP:ESTABLISHED", "-F", "pcn"]),
+  ]);
+  const listening = [
+    ...(tcpListen.code === 0
+      ? parseLsofFields(tcpListen.stdout, "tcp")
+      : parseLsofTable((await fallbackListen(commands)).stdout)),
+    ...(udp.code === 0 ? parseLsofFields(udp.stdout, "udp") : []),
+  ];
+  const connections = established.code === 0 ? parseLsofConnections(established.stdout) : [];
+  return { listening, connections };
+}
+
+async function fallbackListen(commands: CommandRunner): Promise<{ stdout: string }> {
+  const fallback = await commands.run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN"]);
+  return fallback;
+}
+
+export function parseLsofFields(
+  text: string,
+  protocol: TransportProtocol = "tcp",
+): ListeningSocket[] {
   const sockets: ListeningSocket[] = [];
   let pid: number | undefined;
   let command: string | undefined;
@@ -26,23 +47,41 @@ export function parseLsofFields(text: string): ListeningSocket[] {
     } else if (tag === "c") {
       command = value;
     } else if (tag === "n") {
+      if (protocol === "udp" && value.includes("->")) continue;
       const parsed = parseLsofName(value);
       if (!parsed || pid === undefined || Number.isNaN(pid)) continue;
-      const socket: ListeningSocket = {
-        id: socketIdFor({ ...parsed, protocol: "tcp" }),
+      sockets.push({
+        id: socketIdFor({ ...parsed, protocol }),
         address: parsed.address,
         port: parsed.port,
-        protocol: "tcp",
+        protocol,
         pid,
         family: parsed.family,
         bindAddress: parsed.address,
         scope: bindScope(parsed.address),
-      };
-      sockets.push(socket);
+      });
       void command;
     }
   }
   return sockets;
+}
+
+export function parseLsofConnections(text: string): EstablishedConnection[] {
+  const connections: EstablishedConnection[] = [];
+  let pid: number | undefined;
+  for (const line of text.split(/\r?\n/)) {
+    if (!line) continue;
+    const tag = line[0];
+    const value = line.slice(1);
+    if (tag === "p") {
+      pid = Number.parseInt(value, 10);
+    } else if (tag === "n") {
+      const parsed = parseLsofConnectionName(value);
+      if (!parsed || pid === undefined || Number.isNaN(pid)) continue;
+      connections.push({ ...parsed, protocol: "tcp", pid });
+    }
+  }
+  return connections;
 }
 
 export function parseLsofTable(text: string): ListeningSocket[] {
@@ -68,10 +107,28 @@ export function parseLsofTable(text: string): ListeningSocket[] {
   return sockets;
 }
 
+export function parseLsofConnectionName(
+  name: string,
+): Omit<EstablishedConnection, "protocol" | "pid"> | undefined {
+  const cleaned = name.replace(/\s+\(.*\)$/, "");
+  const arrow = cleaned.indexOf("->");
+  if (arrow < 0) return undefined;
+  const local = parseLsofName(cleaned.slice(0, arrow));
+  const remote = parseLsofName(cleaned.slice(arrow + 2));
+  if (!local || !remote) return undefined;
+  return {
+    localAddress: local.address,
+    localPort: local.port,
+    remoteAddress: remote.address,
+    remotePort: remote.port,
+    family: remote.family,
+  };
+}
+
 export function parseLsofName(
   name: string,
 ): { address: string; port: number; family: "ipv4" | "ipv6" } | undefined {
-  const cleaned = name.replace(/\s+\(.*\)$/, "");
+  const cleaned = name.replace(/\s+\(.*\)$/, "").replace(/->.*$/, "");
   const match = /^(.*):(\d+)$/.exec(cleaned);
   if (!match) return undefined;
   let address = match[1] ?? "";

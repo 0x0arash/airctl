@@ -2,7 +2,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
+import { realpathSync } from "node:fs";
 import { AirCtlError, isAirCtlError, toErrorPayload } from "./domain/errors.js";
 import { VERSION } from "./version.js";
 import { createApp, type AppContext } from "./engine/app.js";
@@ -21,6 +21,8 @@ import { formatDoctor, runDoctor } from "./engine/doctor.js";
 import { formatConfig } from "./config/load.js";
 import { runWatchTui } from "./tui/watch.js";
 import { startServer } from "./server/http.js";
+import { completionScript } from "./cli/complete.js";
+import { resolveStopTargets } from "./control/targets.js";
 
 suppressSqliteExperimentalWarning();
 
@@ -32,8 +34,7 @@ export async function runCli(
   try {
     parsed = parseArgv(argv);
   } catch (error) {
-    io.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    return 2;
+    return handleError(error, argv.includes("--json"), io);
   }
 
   if (parsed.flags.help || parsed.command === "help") {
@@ -51,18 +52,18 @@ export async function runCli(
     return 0;
   }
 
-  const app = await createApp({
-    verbose: parsed.flags.verbose,
-    configPath: parsed.flags.config,
-    json: parsed.flags.json,
-  });
-
+  let app: AppContext | undefined;
   try {
+    app = await createApp({
+      verbose: parsed.flags.verbose,
+      configPath: parsed.flags.config,
+      json: parsed.flags.json,
+    });
     return await dispatch(app, parsed.command, parsed.args, parsed.flags, io);
   } catch (error) {
     return handleError(error, parsed.flags.json, io);
   } finally {
-    await app.engine.close();
+    await app?.engine.close();
   }
 }
 
@@ -191,19 +192,13 @@ async function stopCommand(
   flags: ReturnType<typeof parseArgv>["flags"],
   io: { stdout: NodeJS.WriteStream; stderr: NodeJS.WriteStream },
 ): Promise<number> {
-  const pidRaw = args[0];
-  if (!pidRaw || !/^\d+$/.test(pidRaw))
-    throw new AirCtlError("INVALID_INPUT", "Usage: airctl stop <pid>");
-  const pid = Number.parseInt(pidRaw, 10);
   const snapshot = app.engine.getSnapshot() ?? (await app.engine.scan());
-  const proc = snapshot.processes.find((p) => p.pid === pid) ?? (await app.engine.inspectPid(pid));
-  const sockets = snapshot.sockets.filter((s) => s.pid === pid);
+  const raw = flags.port ? `:${flags.port}` : args[0];
+  if (!raw) throw new AirCtlError("INVALID_INPUT", "Usage: airctl stop <pid|:port|project>");
+  const targets = resolveStopTargets(snapshot, raw);
   if (!flags.yes && io.stdout.isTTY) {
     io.stdout.write("Are you sure you want to stop:\n\n");
-    io.stdout.write(`PID ${pid}\n`);
-    io.stdout.write(`${proc.executable ?? "unknown"}\n`);
-    if (proc.cwd) io.stdout.write(`${proc.cwd}\n`);
-    for (const socket of sockets) io.stdout.write(`localhost:${socket.port}\n`);
+    for (const target of targets) io.stdout.write(`  ${target.label}\n`);
     io.stdout.write("\nType y to confirm.\n");
     const rl = createInterface({ input, output });
     const answer = (await rl.question("> ")).trim().toLowerCase();
@@ -218,9 +213,13 @@ async function stopCommand(
       "Refusing to stop a process without --yes in a non-interactive session.",
     );
   }
-  const result = await app.controller.stop({ pid, force: flags.force });
-  if (flags.json) io.stdout.write(`${JSON.stringify({ pid, ...result })}\n`);
-  else io.stdout.write(`Stopped PID ${pid} (${result.signal}).\n`);
+  const results = [];
+  for (const target of targets) {
+    const result = await app.controller.stop({ pid: target.pid, force: flags.force });
+    results.push({ pid: target.pid, ...result });
+    if (!flags.json) io.stdout.write(`Stopped PID ${target.pid} (${result.signal}).\n`);
+  }
+  if (flags.json) io.stdout.write(`${JSON.stringify({ stopped: results })}\n`);
   return 0;
 }
 
@@ -243,7 +242,13 @@ async function openCommand(
       : app.runtime.platform === "win32"
         ? "explorer.exe"
         : "xdg-open";
-  await app.runtime.commands.run(opener, [project.root]);
+  const result = await app.runtime.commands.run(opener, [project.root]);
+  if (result.code !== 0 || result.timedOut) {
+    throw new AirCtlError(
+      result.timedOut ? "TIMEOUT" : "DEPENDENCY_UNAVAILABLE",
+      `Could not open ${project.root} using ${opener}. ${result.stderr.trim() || "Check that a desktop file opener is installed and available."}`,
+    );
+  }
   if (json) io.stdout.write(`${JSON.stringify({ opened: project.root })}\n`);
   else io.stdout.write(`Opened ${project.root}\n`);
   return 0;
@@ -271,15 +276,6 @@ function handleError(
   return 1;
 }
 
-function completionScript(shell: string): string {
-  const commands =
-    "status scan explain inspect projects services graph open stop refresh doctor config ui tui logs version help";
-  if (shell === "zsh") {
-    return `#compdef airctl\n_arguments '1:command:((${commands.split(" ").join(" ")}) )'\n`;
-  }
-  return `complete -W "${commands}" airctl\n`;
-}
-
 function hang(): Promise<void> {
   return new Promise(() => {
     /* keep the UI server running until SIGINT */
@@ -299,18 +295,20 @@ function isEntrypoint(): boolean {
   const entry = process.argv[1];
   if (!entry) return false;
   try {
-    return path.normalize(fileURLToPath(import.meta.url)) === path.normalize(entry);
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
   } catch {
-    return entry.endsWith("cli.js") || entry.endsWith("cli.ts");
+    return false;
   }
 }
 
 if (isEntrypoint()) {
   runCli(process.argv.slice(2)).then(
-    (code) => process.exit(code),
+    (code) => {
+      process.exitCode = code;
+    },
     (error) => {
       console.error(error);
-      process.exit(1);
+      process.exitCode = 1;
     },
   );
 }

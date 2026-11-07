@@ -1,7 +1,7 @@
 {
   "name": "airctl",
-  "version": "0.1.0",
-  "description": "Air traffic control for localhost — discover, inspect, and control local development services.",
+  "version": "0.1.5",
+  "description": "Air traffic control for localhost — discover, inspect, and control local development services. Zero runtime dependencies.",
   "keywords": [
     "cli",
     "developer-tools",
@@ -10,12 +10,19 @@
     "ports",
     "processes"
   ],
+  "homepage": "https://github.com/0x0arash/airctl",
   "license": "MIT",
+  "author": {
+    "name": "Arash Ghorban",
+    "url": "https://github.com/0x0arash"
+  },
+  "repository": "git+https://github.com/0x0arash/airctl.git",
   "bin": {
     "airctl": "./dist/cli.js"
   },
   "files": [
     "dist",
+    "skills",
     "README.md",
     "LICENSE"
   ],
@@ -25,6 +32,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -38,7 +48,8 @@
     "dev": "tsx src/cli.ts",
     "dev:ui": "tsx src/cli.ts ui",
     "prepare": "node scripts/install-hooks.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "git:tag": "node -e \"var v=require('./package.json').version;require('child_process').execSync('git tag -a v'+v+' -m '+JSON.stringify('Release v'+v),{stdio:'inherit'})\""
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
@@ -58,5 +69,13 @@
   },
   "engines": {
     "node": ">=22.14.0"
+  },
+  "agents": {
+    "skills": [
+      {
+        "name": "airctl",
+        "path": "./skills/airctl"
+      }
+    ]
   }
 }
