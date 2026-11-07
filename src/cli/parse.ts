@@ -1,3 +1,6 @@
+import { AirCtlError } from "../domain/errors.js";
+import { parsePortArg } from "../network/parse.js";
+
 export interface CliFlags {
   json: boolean;
   quiet: boolean;
@@ -62,36 +65,32 @@ export function parseArgv(argv: string[]): CliRequest {
       flags[alias] = true as never;
       continue;
     }
-    if (token.startsWith("--project=")) {
-      flags.project = token.slice("--project=".length);
-      continue;
-    }
-    if (token === "--project") {
-      flags.project = argv[++i];
-      continue;
-    }
-    if (token.startsWith("--port=")) {
-      flags.port = token.slice("--port=".length);
-      continue;
-    }
-    if (token === "--port") {
-      flags.port = argv[++i];
-      continue;
-    }
-    if (token.startsWith("--config=")) {
-      flags.config = token.slice("--config=".length);
-      continue;
-    }
-    if (token === "--config") {
-      flags.config = argv[++i];
+    const valueFlag = /^(--project|--port|--config)(?:=(.*))?$/.exec(token);
+    if (valueFlag) {
+      const name = valueFlag[1]!;
+      const value = valueFlag[2] ?? argv[++i];
+      if (!value || value.startsWith("--")) {
+        throw new AirCtlError("INVALID_INPUT", `Missing value for ${name}. See airctl --help.`);
+      }
+      if (name === "--port") {
+        try {
+          parsePortArg(value);
+        } catch {
+          throw new AirCtlError("INVALID_INPUT", `Invalid port: ${value}. Expected 1–65535.`);
+        }
+      }
+      flags[name.slice(2) as "project" | "port" | "config"] = value;
       continue;
     }
     if (token.startsWith("-")) {
-      throw new Error(`Unknown flag: ${token}`);
+      throw new AirCtlError("INVALID_INPUT", `Unknown flag: ${token}. See airctl --help.`);
     }
     rest.push(token);
   }
   const command = rest[0] ?? "status";
+  if (!COMMANDS.includes(command as (typeof COMMANDS)[number])) {
+    throw new AirCtlError("INVALID_INPUT", `Unknown command: ${command}. See airctl --help.`);
+  }
   return { command, args: rest.slice(1), flags };
 }
 
@@ -148,11 +147,12 @@ Options:
   --verbose, -v          Debug logs on stderr
   --watch, -w            Refresh continuously
   --project <name>       Filter by project
-  --port <port>          Filter by port
+  --port <port>          Port for explain or stop
   --all, -a              Include system services
   --yes, -y              Confirm destructive actions
   --force                Use forceful termination after stop
   --config <path>        Config file path
+  --version              Print version
   --help, -h             Show help
 
 AirCtl does not send process, project, or network data anywhere.
