@@ -121,3 +121,17 @@ describe("shell completions", () => {
     assert.equal(parseArgv(["complete", "zsh"]).args[0], "zsh");
   });
 });
+
+describe("stop target diagnostics", () => {
+  it("reports an occupied port whose owner cannot be discovered", () => {
+    const state = snapshot();
+    state.sockets = state.sockets.map((s) => ({ ...s, pid: undefined }));
+    assert.throws(() => resolveStopTargets(state, ":3000"), { code: "PERMISSION_DENIED" });
+  });
+
+  it("rejects PID zero and integers that cannot be represented safely", () => {
+    for (const pid of ["0", "9007199254740993"]) {
+      assert.throws(() => resolveStopTargets(snapshot(), pid), { code: "INVALID_INPUT" });
+    }
+  });
+});

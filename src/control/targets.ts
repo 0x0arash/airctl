@@ -20,6 +20,9 @@ export function resolveStopTargets(snapshot: Snapshot, raw: string): StopTarget[
 
   if (/^\d+$/.test(trimmed)) {
     const pid = Number.parseInt(trimmed, 10);
+    if (!Number.isSafeInteger(pid) || pid <= 0) {
+      throw new AirCtlError("INVALID_INPUT", "PID must be a positive safe integer.");
+    }
     const proc = snapshot.processes.find((p) => p.pid === pid);
     if (proc) {
       return [{ pid, label: `${proc.executable ?? "process"} (PID ${pid})` }];
@@ -51,6 +54,12 @@ function targetsForPort(snapshot: Snapshot, port: number): StopTarget[] {
     ...new Set(sockets.map((s) => s.pid).filter((pid): pid is number => pid !== undefined)),
   ];
   if (pids.length === 0) {
+    if (snapshot.sockets.some((socket) => socket.port === port)) {
+      throw new AirCtlError(
+        "PERMISSION_DENIED",
+        `Port ${port} is occupied, but its process owner is unavailable. Try airctl explain ${port} to inspect it.`,
+      );
+    }
     throw new AirCtlError("PORT_NOT_FOUND", `Nothing is listening on port ${port}.`);
   }
   return pids.map((pid) => {
