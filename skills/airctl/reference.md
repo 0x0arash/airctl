@@ -16,7 +16,9 @@ airctl ui
 airctl version [--json]
 ```
 
-Global flags: `--json` `--quiet` `--verbose` `--yes` `--force` `--all` `--project` `--port`
+Options: `--json` `--quiet` `--verbose` `--yes` `--force` `--all` `--project` `--port` `--config` `--watch` `--help` `--version`.
+
+`--port` supplies the port for `explain` or `stop`; it does not filter `status`. `--watch` applies to `status`. `ui`, `tui`, and completions do not emit JSON. The examples below illustrate payload shapes; timestamps, IDs, and counts are sample data. Optional fields may be omitted.
 
 ## Exit codes
 
@@ -44,8 +46,7 @@ With `--json`, errors print `{ "error": { "code", "message" } }` to stdout.
       "address": "127.0.0.1",
       "port": 3000,
       "protocol": "tcp",
-      "scope": "loopback",
-      "forwarded": null
+      "scope": "loopback"
     }
   ],
   "process": {
@@ -117,7 +118,7 @@ Use `--all` to include system services. Use `--project shop` to filter.
 
 ```json
 {
-  "stopped": [{ "pid": 18472, "ok": true, "signal": "SIGTERM" }]
+  "stopped": [{ "pid": 18472, "stopped": true, "signal": "SIGTERM" }]
 }
 ```
 
@@ -137,11 +138,15 @@ Use `--all` to include system services. Use `--project shop` to filter.
 
 ## Stop target resolution
 
-| Target  | Example                     | Stops                        |
-| ------- | --------------------------- | ---------------------------- |
-| PID     | `stop 18472`                | That process                 |
-| Port    | `stop :3000` or `stop 3000` | Listener(s) on port          |
-| Project | `stop shop`                 | Dev services tied to project |
+| Target  | Example                            | Stops                        |
+| ------- | ---------------------------------- | ---------------------------- |
+| PID     | `stop 18472`                       | That process                 |
+| Port    | `stop :3000` or `stop --port 3000` | Listener(s) on port          |
+| Project | `stop shop`                        | Dev services tied to project |
+
+Bare numeric targets always mean PIDs: `stop 3000` targets PID 3000, not port 3000. If a port is occupied but its owner is unavailable, stop reports `PERMISSION_DENIED`.
+
+By default, Unix stop sends SIGTERM and waits up to three seconds. Check each result’s `stopped` boolean; `false` means the process was still present after that wait. `--force` sends SIGKILL immediately on Unix or uses `taskkill /F` on Windows. AirCtl does not stop containers through Docker.
 
 ## Platform notes
 
@@ -152,11 +157,13 @@ Use `--all` to include system services. Use `--project shop` to filter.
 | CWD       | `/proc/pid/cwd` | `lsof -d cwd` | command-line inference, PEB when permitted |
 | Forwards  | —               | —             | WSL, Hyper-V, `netsh portproxy`            |
 
+Linux process discovery currently omits `startedAt`, so process age is unavailable there.
+
 When `availability` is `permission-limited` or `unsupported`, say so — do not guess missing fields.
 
 ## Config (optional)
 
-Locations: `./airctl.yaml`, or user config dir (`~/.config/airctl/config.yaml`, `%LOCALAPPDATA%\airctl\config.yaml`, `~/Library/Application Support/airctl/config.yaml`).
+Use `--config <path>` for an explicit file. Otherwise AirCtl checks `airctl.yaml`, `airctl.yml`, and `airctl.json` in the current directory, then `config.yaml`, `config.yml`, and `config.json` in the user config directory. Platform examples: `~/.config/airctl/config.yaml`, `%LOCALAPPDATA%\airctl\config.yaml`, `~/Library/Application Support/airctl/config.yaml`.
 
 ```yaml
 projects:

@@ -55,7 +55,7 @@ AirCtl does.
 
 ```bash
 airctl explain :3000     # what is using this port, and why?
-airctl stop :3000        # stop it (asks first, never SIGKILL)
+airctl stop :3000        # stop it (asks first; SIGTERM by default)
 airctl status            # every development service on your machine
 airctl status --watch    # live terminal dashboard
 airctl ui                # local web UI
@@ -95,7 +95,7 @@ npm install -g airctl
 
 On Linux (including Arch), discovery reads `/proc` directly; `lsof` and `netstat` are not required. Processes owned by other users may have limited details. Opening project folders requires `xdg-open` and a desktop session.
 
-If `airctl` exits silently, check `airctl --version`. Older releases could skip startup when invoked through a global-install symlink. After installing this fix, the command works through npm and Bun command symlinks. To diagnose an older installation, run its resolved entry point directly:
+On Linux, if `airctl` exits silently, check `airctl --version`. Older releases could skip startup when invoked through a global-install symlink. Version 0.1.5 fixes this startup check; the command works through npm and Bun command symlinks. To diagnose an older installation, run its resolved entry point directly:
 
 ```bash
 node "$(readlink -f "$(command -v airctl)")" --version
@@ -116,8 +116,10 @@ node dist/cli.js status
 AirCtl ships an [agent skill](skills/airctl/SKILL.md) that teaches coding agents to diagnose port conflicts and stop local dev services safely — prefer `airctl explain` over `lsof`/`kill -9`, use `--json` for parsing, and require `--yes` before stopping in non-interactive sessions.
 
 ```bash
-npx skills add 0x0arash/airctl@airctl -y
+npx skills add https://github.com/0x0arash/airctl --skill airctl
 ```
+
+The [skills installer](https://github.com/vercel-labs/skills#install-a-skill) has its own Node.js requirement (currently 22.20+); AirCtl itself requires 22.14+. The repository owner is `0x0arash`; the npm package is the unscoped `airctl`.
 
 The skill is also bundled in the npm package under `skills/airctl/` for tools that discover skills from dependencies.
 
@@ -148,7 +150,7 @@ airctl version
 
 Flags: `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--yes` `--force`.
 
-JSON output is a single document. Logs never mix into `--json`.
+Query commands and `stop` support `--json`; logs go to stderr. `ui`, `tui`, and shell completion output are not JSON. Use `--port` with `explain` or `stop`; it does not filter `status`. `--force` sends SIGKILL immediately on Unix (or `taskkill /F` on Windows), so use it only when forceful termination is intended.
 
 **Shell completions:**
 
@@ -179,10 +181,13 @@ Browse and control your local services without leaving the editor.
 
 ```bash
 cd vscode-extension
-npm install && npm run compile
+npm install
+npm run compile
+npm run package
+code --install-extension ./airctl-vscode-*.vsix
 ```
 
-Install the `.vsix` with `code --install-extension vscode-extension/airctl-vscode-*.vsix`, or press **F5** from the `vscode-extension/` folder to launch the Extension Development Host.
+Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode). The extension needs the CLI installed globally or configured through `airctl.path`; running `npx airctl` once does not put it on PATH.
 
 - **Status bar** — service count at a glance
 - **Sidebar tree view** — projects, services, and ports in the activity bar
@@ -233,12 +238,14 @@ AirCtl does **not** require root or Administrator. `airctl doctor` reports how c
 
 ## Privacy
 
-AirCtl does not send your data anywhere.
+AirCtl keeps discovery data in the local process and cache; it does not upload it to a hosted service.
 
-- no cloud service, no telemetry, no analytics, no accounts, no external API calls
+- no cloud service, telemetry, analytics, or accounts
+- health checks connect to discovered services; HTTP checks follow redirects, which may reach external hosts
+- package and skill installation use their registries and hosting services
 - zero runtime npm dependencies — no transitive package tree to audit or supply-chain surprises
 
-Environment variables are never displayed by default and never persisted. Command lines are redacted when they look like they contain secrets.
+AirCtl does not collect complete process environments. Collected command lines are redacted when they look like they contain secrets and may be stored in the local discovery cache.
 
 ## Security
 

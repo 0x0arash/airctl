@@ -49,7 +49,7 @@ Read the output before stopping anything. AirCtl includes:
 
 - Process name, PID, command line (redacted if secret-like)
 - Project root when detectable
-- How long the process has been running
+- How long the process has been running, when the platform provides a start time (currently unavailable from Linux `/proc` discovery)
 - Classification (dev server, database, container, …)
 - `likelyIssue` and suggested `actions`
 
@@ -78,8 +78,8 @@ Without `--yes` in a non-TTY session, AirCtl exits **5** (`CONFIRMATION_REQUIRED
 
 Optional flags:
 
-- `--force` — SIGKILL only when graceful stop fails (last resort)
-- `--json` — `{ "stopped": [{ "pid", "ok", "signal", … }] }`
+- `--force` — sends SIGKILL immediately on Unix, or uses `taskkill /F` on Windows; it does not attempt a graceful stop first
+- `--json` — `{ "stopped": [{ "pid", "stopped", "signal", … }] }`
 
 ### 3. Verify
 
@@ -104,7 +104,7 @@ Always pass `--json` when parsing output programmatically. Logs never mix into J
 | ---------------------- | ------------------------------------------------------------------ |
 | `status --json`        | `{ version, scannedAt, summary, services, projects, warnings, … }` |
 | `explain :PORT --json` | `{ port, occupied, process, project, likelyIssue, actions, … }`    |
-| `stop … --json`        | `{ stopped: [...] }`                                               |
+| `stop … --yes --json`  | `{ stopped: [...] }`                                               |
 | `doctor --json`        | `{ checks, warnings, platform, nodeVersion }`                      |
 | errors with `--json`   | `{ error: { code, message } }` on stdout                           |
 
@@ -132,7 +132,7 @@ npx airctl doctor
 
 **Docker / WSL port forwarding on Windows**
 
-`explain` may show forwarded listeners (`forwarded` on sockets). Stop the owning process or container AirCtl identifies — not arbitrary proxy PIDs.
+`explain` may show forwarded listeners (`forwarded` on sockets). Inspect the attribution first. AirCtl stops processes, not containers through the Docker API. Use the container tooling to stop a container; do not stop shared proxy processes merely to free one forwarded port.
 
 **Permission-limited CWD or process name**
 
@@ -161,7 +161,9 @@ npm install -g airctl   # optional; npx works without install
 Install this skill:
 
 ```bash
-npx skills add 0x0arash/airctl@airctl -y
+npx skills add https://github.com/0x0arash/airctl --skill airctl
 ```
 
-Privacy: AirCtl is local-only — no telemetry, no cloud, no external API calls.
+The skill installer has its own Node.js requirement (currently 22.20+). `0x0arash` is the GitHub owner; `airctl` is the unscoped npm package.
+
+Privacy: AirCtl has no telemetry or cloud service. Health probes connect to discovered services and HTTP probes follow redirects, which may reach external hosts. Installation uses package registries and GitHub.
