@@ -27,6 +27,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:package
+      - run: npx --yes npm@latest run test:package
+        if: runner.os == 'Linux'
       - run: npm ci
         working-directory: vscode-extension
       - run: npm run typecheck

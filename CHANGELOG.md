@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.7] — 2026-11-10
+## [0.1.8] — 2026-11-10
+
+### Fixed
+
+- Accept both array and package-keyed npm pack JSON results in the packaged artifact smoke test, and cover the latest npm release in CI.
+- Includes all 0.1.7 changes below. The 0.1.7 release validation failed before publication; its existing Git tag is retained.
+
+## [0.1.7] — 2026-11-10 (not published)
 
 ### Fixed
 

@@ -8,16 +8,27 @@ import { pathToFileURL } from "node:url";
 const temporary = await mkdtemp(path.join(tmpdir(), "airctl-package-"));
 let server;
 try {
-  const npm = process.platform === "win32" ? "npm.cmd" : "npm";
+  const npmCli = process.env.npm_execpath;
+  const npm = npmCli ? process.execPath : process.platform === "win32" ? "npm.cmd" : "npm";
   const output = execFileSync(
     npm,
-    ["pack", "--ignore-scripts", "--json", "--pack-destination", temporary],
+    [
+      ...(npmCli ? [npmCli] : []),
+      "pack",
+      "--ignore-scripts",
+      "--json",
+      "--pack-destination",
+      temporary,
+    ],
     {
       encoding: "utf8",
-      shell: process.platform === "win32",
+      shell: !npmCli && process.platform === "win32",
     },
   );
-  const packed = JSON.parse(output.slice(output.lastIndexOf("\n[") + 1));
+  const parsed = JSON.parse(output.slice(output.lastIndexOf("\n[") + 1));
+  // npm 10 returns an array; newer npm versions key results by package name.
+  const packed = Array.isArray(parsed) ? parsed : Object.values(parsed);
+  assert.equal(typeof packed[0]?.filename, "string", "npm pack did not return a tarball filename");
   execFileSync("tar", ["-xf", path.join(temporary, packed[0].filename), "-C", temporary]);
   const root = path.join(temporary, "package");
   const { startServer } = await import(pathToFileURL(path.join(root, "dist/server/http.js")));
