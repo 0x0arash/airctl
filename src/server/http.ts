@@ -255,7 +255,7 @@ async function serveStatic(
   createReadStream(unsafe).pipe(res);
 }
 
-function htmlFallback(res: ServerResponse, token: string): void {
+export function htmlFallback(res: ServerResponse, token: string): void {
   res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   res.end(`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/><title>AirCtl</title>
@@ -279,8 +279,24 @@ const token = document.querySelector('meta[name="airctl-token"]').content;
 async function load(){
   const res = await fetch('/api/v1/status');
   const data = await res.json();
-  const rows = (data.services||[]).map(s => '<tr><td>'+s.name+'</td><td>'+(s.ports||[]).join(', ')+'</td><td>'+s.health+'</td><td>'+s.classification+'</td></tr>').join('');
-  document.getElementById('app').innerHTML = '<p>'+data.summary.services+' services</p><table><thead><tr><th>Service</th><th>Port</th><th>Status</th><th>Class</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  const app = document.getElementById('app');
+  const summary = document.createElement('p');
+  summary.textContent = String(data.summary.services) + ' services';
+  const table = document.createElement('table');
+  const header = table.createTHead().insertRow();
+  for (const label of ['Service', 'Port', 'Status', 'Class']) {
+    const th = document.createElement('th');
+    th.textContent = label;
+    header.append(th);
+  }
+  const body = table.createTBody();
+  for (const service of data.services || []) {
+    const row = body.insertRow();
+    for (const value of [service.name, (service.ports || []).join(', '), service.health, service.classification]) {
+      row.insertCell().textContent = String(value);
+    }
+  }
+  app.replaceChildren(summary, table);
 }
 document.getElementById('refresh').onclick = async () => {
   await fetch('/api/v1/refresh',{method:'POST',headers:{'x-airctl-token':token}});

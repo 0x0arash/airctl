@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as vscode from "vscode";
 
@@ -60,24 +60,35 @@ export interface StopResult {
 function resolveCommand(): { cmd: string; args: string[]; shell: boolean } {
   const configured = vscode.workspace.getConfiguration("airctl").get<string>("path", "");
   if (configured) {
-    return { cmd: configured, args: [], shell: true };
+    return {
+      cmd: configured,
+      args: [],
+      shell: process.platform === "win32" && /\.cmd$/i.test(configured),
+    };
   }
 
   // Check relative to extension install dir (works when developing in-repo)
   const candidates = [join(__dirname, "..", "..", "dist", "cli.js")];
 
-  // Check workspace folders for an airctl project with a built CLI
-  for (const folder of vscode.workspace.workspaceFolders ?? []) {
-    candidates.push(join(folder.uri.fsPath, "dist", "cli.js"));
-  }
-
   for (const candidate of candidates) {
-    if (existsSync(candidate)) {
+    if (existsSync(candidate) && isAirCtlCheckout(join(candidate, "..", "..", "package.json"))) {
       return { cmd: process.execPath, args: [candidate], shell: false };
     }
   }
 
-  return { cmd: "airctl", args: [], shell: true };
+  return {
+    cmd: process.platform === "win32" ? "airctl.cmd" : "airctl",
+    args: [],
+    shell: process.platform === "win32",
+  };
+}
+
+function isAirCtlCheckout(manifest: string): boolean {
+  try {
+    return JSON.parse(readFileSync(manifest, "utf8")).name === "airctl";
+  } catch {
+    return false;
+  }
 }
 
 function run(args: string[]): Promise<string> {

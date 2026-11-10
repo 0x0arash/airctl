@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- Redact mixed and quoted credentials, render fallback service names as text, and prevent stale inspector requests from targeting another process.
+- Stop automatically executing workspace CLI files in the extension; restrict executable settings to the machine and require trusted workspaces.
+
 ## [0.1.6] — 2026-11-07
 
 ### Fixed

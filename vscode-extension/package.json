@@ -103,7 +103,8 @@
         "airctl.path": {
           "type": "string",
           "default": "",
-          "description": "Path to the airctl binary. Leave empty to auto-detect."
+          "description": "Path to the airctl binary. Leave empty to auto-detect.",
+          "scope": "machine"
         },
         "airctl.refreshInterval": {
           "type": "number",
@@ -120,5 +121,11 @@
   "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "AirCtl executes a local CLI to inspect and control processes."
+    }
   }
 }

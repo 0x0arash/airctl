@@ -10,16 +10,23 @@ export function Inspector({
   pid?: number;
   onStop: () => Promise<void> | void;
 }) {
-  const [data, setData] = useState<Record<string, unknown> | undefined>();
+  const target = port !== undefined ? `port:${port}` : `pid:${pid}`;
+  const [result, setResult] = useState<{ target: string; data: Record<string, unknown> }>();
+  const data = result?.target === target ? result.data : undefined;
   const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
     let cancelled = false;
     const run = async (): Promise<void> => {
       try {
-        if (port !== undefined) setData(await api.explain(port));
-        else if (pid !== undefined) setData(await api.inspect(pid));
-        else setData(undefined);
+        const next =
+          port !== undefined
+            ? await api.explain(port)
+            : pid !== undefined
+              ? await api.inspect(pid)
+              : undefined;
+        if (cancelled) return;
+        setResult(next ? { target, data: next } : undefined);
         setError(undefined);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -29,7 +36,7 @@ export function Inspector({
     return () => {
       cancelled = true;
     };
-  }, [port, pid]);
+  }, [port, pid, target]);
 
   const process = (data?.process ??
     (
@@ -39,7 +46,7 @@ export function Inspector({
     )?.process) as
     | { pid?: number; executable?: string; command?: string; cwd?: string }
     | undefined;
-  const stopPid = pid ?? process?.pid;
+  const stopPid = data ? process?.pid : undefined;
 
   return (
     <section>
