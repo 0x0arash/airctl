@@ -62,7 +62,7 @@
     "esbuild": "^0.28.2",
     "fast-check": "^4.2.0",
     "lefthook": "^2.1.10",
-    "oxfmt": "^0.63.0",
+    "oxfmt": "^0.77.0",
     "oxlint": "^1.78.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
