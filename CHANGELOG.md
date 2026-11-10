@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - Accept both array and package-keyed npm pack JSON results in the packaged artifact smoke test, and cover the latest npm release in CI.
+- Install the extension compiler independently, check isolated extension installs before root dependencies, and allow extension-only publication retries.
 - Includes all 0.1.7 changes below. The 0.1.7 release validation failed before publication; its existing Git tag is retained.
 
 ## [0.1.7] — 2026-11-10 (not published)
