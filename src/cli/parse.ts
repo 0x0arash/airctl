@@ -3,6 +3,7 @@ import { parsePortArg } from "../network/parse.js";
 
 export interface CliFlags {
   json: boolean;
+  fast: boolean;
   quiet: boolean;
   verbose: boolean;
   watch: boolean;
@@ -24,6 +25,7 @@ export interface CliRequest {
 
 const FLAG_ALIASES: Record<string, keyof CliFlags | "arg"> = {
   "--json": "json",
+  "--fast": "fast",
   "--quiet": "quiet",
   "-q": "quiet",
   "--verbose": "verbose",
@@ -43,6 +45,7 @@ const FLAG_ALIASES: Record<string, keyof CliFlags | "arg"> = {
 export function parseArgv(argv: string[]): CliRequest {
   const flags: CliFlags = {
     json: false,
+    fast: false,
     quiet: false,
     verbose: false,
     watch: false,
@@ -143,6 +146,7 @@ Commands:
 
 Options:
   --json                 Machine-readable output
+  --fast                 Skip Docker, health probes, and established connections
   --quiet, -q            Minimal output
   --verbose, -v          Debug logs on stderr
   --watch, -w            Refresh continuously
@@ -154,6 +158,11 @@ Options:
   --config <path>        Config file path
   --version              Print version
   --help, -h             Show help
+
+Start here:
+  airctl explain :3000   Find a port owner and the next useful actions
+  airctl status --fast   Quick process/socket inventory, without health probes
+  airctl tui             Search services, browse projects, inspect, and stop
 
 AirCtl does not send process, project, or network data anywhere.
 `;

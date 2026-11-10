@@ -14,6 +14,7 @@ export class StatusBarController implements vscode.Disposable {
   }
 
   async refresh(): Promise<void> {
+    if (this.item.text === "$(radio-tower) AirCtl") this.item.text = "$(sync~spin) AirCtl";
     try {
       const status = await getStatus();
       const { services, healthy, unhealthy } = status.summary;
@@ -24,8 +25,15 @@ export class StatusBarController implements vscode.Disposable {
         label += ` — ${healthy} healthy`;
       }
       this.item.text = label;
+      const detailed = vscode.workspace
+        .getConfiguration("airctl")
+        .get<boolean>("detailedDiscovery", false);
+      this.item.tooltip = detailed
+        ? "AirCtl — full discovery with Docker and health probes. Click to browse."
+        : "AirCtl — fast service inventory (health probes skipped). Click to browse, or run AirCtl: Find Service.";
     } catch {
-      this.item.text = "$(radio-tower) AirCtl";
+      this.item.text = "$(warning) AirCtl";
+      this.item.tooltip = "AirCtl could not refresh. Check the CLI path and refresh the sidebar.";
     }
   }
 

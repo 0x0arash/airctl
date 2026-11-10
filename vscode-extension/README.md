@@ -4,14 +4,18 @@ See and control your local development services directly from VS Code.
 
 ## Features
 
+Use **AirCtl: Find Service** to search by port, project, PID, or name. Selecting a service offers explain, open localhost, copy address, reveal project, and confirmed stop actions. **AirCtl: Open Terminal Dashboard** launches the interactive TUI using the same configured CLI.
+
 - **Status bar** — shows the number of active services at a glance.
 - **Sidebar tree view** — browse projects, services, and ports in the activity bar.
 - **Explain port** — right-click a port number in your code (or use the command palette) to see what's using it.
 - **Stop service** — stop a service directly from the tree view.
 
+Fast inventory skips Docker and health probes. Enable `airctl.detailedDiscovery` to include them (with slower refreshes). `running (not probed)` means a listener exists, not that an HTTP health check passed. Ports are visible beside each sidebar service, and a transient refresh failure keeps the last successful inventory visible.
+
 ## Requirements
 
-Install the CLI with `npm install -g airctl` (Node.js 22.14+) and make it available on the editor’s PATH, or set `airctl.path` to its executable. Running `npx airctl` once does not install a persistent command for the extension. During development, the extension can detect a built CLI in the AirCtl checkout containing the extension. It does not execute workspace `dist/cli.js` files. Executable settings are machine-scoped, and the extension requires a trusted workspace.
+Install the CLI with `npm install -g airctl` (Node.js 22.14+) and make it available on the editor’s PATH, or set `airctl.path` to its executable. These features require a CLI build supporting `--fast` and the interactive TUI. Running `npx airctl` once does not install a persistent command for the extension. During development, the extension can detect a built CLI in the AirCtl checkout containing the extension. It does not execute workspace `dist/cli.js` files. Executable settings are machine-scoped, and the extension requires a trusted workspace.
 
 ## Settings
 

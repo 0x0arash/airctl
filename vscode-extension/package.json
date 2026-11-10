@@ -54,7 +54,7 @@
     "viewsWelcome": [
       {
         "view": "airctl.services",
-        "contents": "No services found.\n\nMake sure airctl is installed and on your PATH.\n[Install airctl](https://github.com/0x0arash/airctl)\n\n[Refresh](command:airctl.refresh)"
+        "contents": "No services found.\n\nMake sure airctl is installed and on your PATH.\n[Install airctl](https://github.com/0x0arash/airctl)\n\n[Refresh](command:airctl.refresh)\n[Find a service](command:airctl.findService)\n[Open terminal dashboard](command:airctl.openTui)"
       }
     ],
     "commands": [
@@ -71,12 +71,30 @@
         "command": "airctl.stopService",
         "title": "AirCtl: Stop Service",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "airctl.findService",
+        "title": "AirCtl: Find Service",
+        "icon": "$(search)"
+      },
+      {
+        "command": "airctl.inspectService",
+        "title": "AirCtl: Service Actions"
+      },
+      {
+        "command": "airctl.openTui",
+        "title": "AirCtl: Open Terminal Dashboard"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "airctl.refresh",
+          "when": "view == airctl.services",
+          "group": "navigation"
+        },
+        {
+          "command": "airctl.findService",
           "when": "view == airctl.services",
           "group": "navigation"
         }
@@ -113,6 +131,11 @@
           "default": 10,
           "minimum": 2,
           "description": "Auto-refresh interval in seconds."
+        },
+        "airctl.detailedDiscovery": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include Docker containers, connection topology, and health probes. Refreshes may take longer."
         }
       }
     }

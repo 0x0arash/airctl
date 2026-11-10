@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Fast inventory (`--fast`), discovery-stage timings, and a repeatable command benchmark.
+- Interactive terminal dashboard with search, project filters, process details, optional health/Docker checks, and confirmed graceful stops.
+- Extension service search and actions for explaining ports, opening localhost, copying endpoints, revealing projects, and launching the TUI.
+
+### Changed
+
+- Scope port queries to listener owners and inspect/stop PIDs without full discovery; avoid the extra doctor scan.
+- List project directory markers once per scan, memoize ancestor reads, and bound filesystem concurrency.
+- Query Docker once with a one-second budget; skip optional discovery in the extension and terminal inventory.
+- Distinguish running listeners from checked healthy services; retain sidebar data during transient errors.
+
 ## [0.1.8] — 2026-11-10
 
 ### Fixed

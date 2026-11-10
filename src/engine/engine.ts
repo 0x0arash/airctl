@@ -43,6 +43,10 @@ import { USER_AGENT } from "../version.js";
 import { attachInferredCwds } from "../process/windows.js";
 import { enrichWindowsListenerCwds } from "../process/windows-cwd.js";
 
+export interface ScanOptions {
+  fast?: boolean;
+}
+
 export interface EngineDeps {
   runtime: Runtime;
   processes?: ProcessProvider;
@@ -72,6 +76,7 @@ export class DiscoveryEngine {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private inFlight: Promise<Snapshot> | undefined;
   private loopGeneration = 0;
+  private fastScan = false;
   private idleTicks = 0;
 
   constructor(deps: EngineDeps) {
@@ -103,34 +108,44 @@ export class DiscoveryEngine {
     return this.snapshot;
   }
 
-  refresh(): Promise<Snapshot> {
-    return this.scan();
+  refresh(options: ScanOptions = {}): Promise<Snapshot> {
+    return this.scan(options);
   }
 
-  scan(): Promise<Snapshot> {
-    if (this.inFlight) return this.inFlight;
-    this.inFlight = this.scanUnsynchronized().finally(() => {
+  scan(options: ScanOptions = {}): Promise<Snapshot> {
+    if (this.inFlight)
+      return this.fastScan === !!options.fast
+        ? this.inFlight
+        : this.inFlight.then(() => this.scan(options));
+    this.fastScan = !!options.fast;
+    this.inFlight = this.scanUnsynchronized(options).finally(() => {
       this.inFlight = undefined;
     });
     return this.inFlight;
   }
 
-  private async scanUnsynchronized(): Promise<Snapshot> {
+  private async scanUnsynchronized(options: ScanOptions): Promise<Snapshot> {
     const previous = this.snapshot ?? (await this.store.load());
     const started = this.runtime.clock.nowMs();
     const [processRaw, dockerAvail] = await Promise.all([
       this.safe("processes", () => this.processes.listProcesses(), [] as ProcessInfo[]),
-      this.safe("docker", () => this.containers.available(), {
-        ok: false,
-        detail: "Docker integration unavailable",
-      }),
+      options.fast
+        ? Promise.resolve({ ok: false, detail: "Docker enrichment skipped in fast mode" })
+        : this.safe("docker", () => this.containers.available(), {
+            ok: false,
+            detail: "Docker integration unavailable",
+          }),
     ]);
 
     let processResult = attachInferredCwds(processRaw);
-    const network = await this.safe("sockets", () => this.sockets.discover(processResult), {
-      listening: [] as ListeningSocket[],
-      connections: [],
-    });
+    const network = await this.safe(
+      "sockets",
+      () => this.sockets.discover(processResult, { connections: !options.fast }),
+      {
+        listening: [] as ListeningSocket[],
+        connections: [],
+      },
+    );
     const socketResult = network.listening;
     const connections = network.connections;
 
@@ -180,7 +195,11 @@ export class DiscoveryEngine {
 
     const interesting = services.filter((s) => isDevelopmentInterest(s) || s.health === "orphaned");
     await mapLimit(interesting, 8, async (service) => {
-      if (service.health === "orphaned" || (service.containerId && service.socketIds.length === 0))
+      if (
+        options.fast ||
+        service.health === "orphaned" ||
+        (service.containerId && service.socketIds.length === 0)
+      )
         return;
       const socks = socketResult.filter((s) => service.socketIds.includes(s.id));
       try {
@@ -219,6 +238,11 @@ export class DiscoveryEngine {
     });
 
     const capabilities = await this.capabilities(processResult, socketResult, dockerAvail);
+    if (options.fast)
+      capabilities.httpHealth = {
+        ok: false,
+        detail: "Not checked in fast mode; use status without --fast for probes",
+      };
     const durationMs = this.runtime.clock.nowMs() - started;
     const scannedAt = this.runtime.clock.isoNow();
     const domainEvents = diffSnapshots(previous, {
@@ -266,6 +290,77 @@ export class DiscoveryEngine {
     return snapshot;
   }
 
+  async portSnapshot(portInput: string | number): Promise<Snapshot> {
+    let port: number;
+    try {
+      port = parsePortArg(String(portInput));
+    } catch {
+      throw new AirCtlError("INVALID_INPUT", `Invalid port: ${portInput}. Expected 1–65535.`);
+    }
+    const started = this.runtime.clock.nowMs();
+    const network = await this.sockets.discover([], { port, connections: false });
+    const sockets = network.listening.filter((socket) => socket.port === port);
+    const pids = [
+      ...new Set(sockets.flatMap((socket) => (socket.pid === undefined ? [] : [socket.pid]))),
+    ];
+    const processes = (await mapLimit(pids, 8, (pid) => this.processes.inspect(pid))).filter(
+      (proc): proc is ProcessInfo => !!proc && proc.availability !== "gone",
+    );
+    const owners = processes.slice();
+    const parents = [
+      ...new Set(
+        owners.flatMap((proc) =>
+          proc.parentPid && proc.parentPid > 1 && !pids.includes(proc.parentPid)
+            ? [proc.parentPid]
+            : [],
+        ),
+      ),
+    ];
+    processes.push(
+      ...(await mapLimit(parents, 8, (pid) => this.processes.inspect(pid))).filter(
+        (proc): proc is ProcessInfo => !!proc && proc.availability !== "gone",
+      ),
+    );
+    const projects = owners.length ? await this.projects.detectFromProcesses(owners) : [];
+    const services = classifyServices({ processes, sockets, projects, detectors: this.detectors });
+    const cwdExists = new Map<string, boolean>();
+    for (const owner of owners)
+      if (owner.cwd)
+        cwdExists.set(owner.cwd, (await this.runtime.fs.stat(owner.cwd))?.isDirectory === true);
+    const orphans = detectOrphans({
+      services,
+      processes,
+      platform: this.runtime.platform,
+      cwdExists: (cwd) => cwdExists.get(cwd) !== false,
+    });
+    for (const finding of orphans) {
+      const service = services.find((item) => item.id === finding.serviceId);
+      if (service) {
+        service.health = "orphaned";
+        service.orphanReason = finding.reason;
+      }
+    }
+    const warnings = collectWarnings({ services, sockets, processes, projects, orphans });
+    const capabilities = await this.capabilities(processes, sockets, {
+      ok: false,
+      detail: "Not queried for a focused port lookup",
+    });
+    capabilities.httpHealth = { ok: false, detail: "Not probed for a focused port lookup" };
+    return {
+      scannedAt: this.runtime.clock.isoNow(),
+      durationMs: this.runtime.clock.nowMs() - started,
+      processes,
+      sockets,
+      projects,
+      services,
+      warnings,
+      graph: { nodes: [], edges: [] },
+      capabilities,
+      summary: summarize(services, warnings),
+      events: [],
+    };
+  }
+
   async explainPort(portInput: string | number): Promise<PortExplanation> {
     let port: number;
     try {
@@ -273,7 +368,7 @@ export class DiscoveryEngine {
     } catch {
       throw new AirCtlError("INVALID_INPUT", `Invalid port: ${portInput}. Expected 1–65535.`);
     }
-    const snapshot = this.snapshot ?? (await this.scan());
+    const snapshot = this.snapshot ?? (await this.portSnapshot(port));
     const sockets = snapshot.sockets.filter((s) => s.port === port);
     if (sockets.length === 0) {
       return {
@@ -354,12 +449,12 @@ export class DiscoveryEngine {
     return live;
   }
 
-  startAdaptiveLoop(): void {
+  startAdaptiveLoop(options: ScanOptions = {}, immediate = true): void {
     this.stopLoop();
     const generation = this.loopGeneration;
     const tick = async (): Promise<void> => {
       try {
-        await this.scan();
+        await this.scan(options);
       } catch (error) {
         this.logger.warn("scan failed", { error: String(error) });
       }
@@ -370,7 +465,14 @@ export class DiscoveryEngine {
       }, delay);
       this.timer.unref?.();
     };
-    void tick();
+    if (immediate) void tick();
+    else
+      this.timer = setTimeout(
+        () => {
+          void tick();
+        },
+        adaptiveDelay(this.config.scan.interval, this.idleTicks),
+      );
   }
 
   stopLoop(): void {
@@ -444,11 +546,17 @@ export class DiscoveryEngine {
   }
 
   private async safe<T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+    const started = this.runtime.clock.nowMs();
     try {
       return await fn();
     } catch (error) {
       this.logger.warn(`${label} failed`, { error: String(error) });
       return fallback;
+    } finally {
+      this.logger.debug("discovery stage", {
+        phase: label,
+        durationMs: this.runtime.clock.nowMs() - started,
+      });
     }
   }
 }
@@ -550,7 +658,11 @@ function diffSnapshots(
         name: service.name,
         port,
       });
-    } else if (before.health !== service.health) {
+    } else if (
+      before.health !== service.health &&
+      before.health !== "running" &&
+      service.health !== "running"
+    ) {
       events.push({
         type: "HealthChanged",
         at,

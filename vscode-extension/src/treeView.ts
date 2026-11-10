@@ -13,9 +13,9 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
     try {
       this.data = await getStatus();
     } catch (err) {
-      this.data = undefined;
+      // Keep the last successful inventory visible on transient failures.
       const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.showErrorMessage(`AirCtl: ${msg}`);
+      vscode.window.setStatusBarMessage(`AirCtl refresh failed: ${msg}`, 5000);
     }
     this.changeEmitter.fire(undefined);
   }
@@ -57,7 +57,7 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
     }
 
     if (element instanceof ProjectNode) {
-      return element.services.map((s) => new ServiceNode(s));
+      return element.services.map((s) => new ServiceNode(s, element.project));
     }
 
     if (element instanceof ServiceNode) {
@@ -75,13 +75,17 @@ class ProjectNode extends vscode.TreeItem {
   ) {
     super(project.name, vscode.TreeItemCollapsibleState.Expanded);
     this.contextValue = "project";
-    this.description = project.root ? project.root : undefined;
+    this.description = `${services.length} service${services.length === 1 ? "" : "s"}`;
+    this.tooltip = project.root;
     this.iconPath = new vscode.ThemeIcon("folder");
   }
 }
 
 class ServiceNode extends vscode.TreeItem {
-  constructor(public readonly service: ServiceEntry) {
+  constructor(
+    public readonly service: ServiceEntry,
+    public readonly project?: ProjectEntry,
+  ) {
     super(
       service.name,
       service.ports.length > 0
@@ -90,7 +94,12 @@ class ServiceNode extends vscode.TreeItem {
     );
 
     this.contextValue = "service";
-    this.description = healthLabel(service.health);
+    this.description = `${service.ports.map((port) => `:${port}`).join(", ")} · ${healthLabel(service.health)}`;
+    this.command = {
+      command: "airctl.inspectService",
+      title: "Service actions",
+      arguments: [this],
+    };
     this.iconPath = healthIcon(service.health);
 
     if (service.processId) {
@@ -114,8 +123,9 @@ class PortNode extends vscode.TreeItem {
 function healthIcon(health: string): vscode.ThemeIcon {
   switch (health) {
     case "healthy":
-    case "running":
       return new vscode.ThemeIcon("pass", new vscode.ThemeColor("testing.iconPassed"));
+    case "running":
+      return new vscode.ThemeIcon("circle-filled");
     case "unhealthy":
       return new vscode.ThemeIcon("error", new vscode.ThemeColor("testing.iconFailed"));
     case "stopped":
@@ -131,6 +141,7 @@ function healthIcon(health: string): vscode.ThemeIcon {
 }
 
 function healthLabel(health: string): string {
-  if (health === "healthy" || health === "running") return "healthy";
+  if (health === "healthy") return "healthy";
+  if (health === "running") return "running (not probed)";
   return health;
 }

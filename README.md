@@ -57,7 +57,9 @@ AirCtl associates listeners with projects and reports the evidence available on 
 airctl explain :3000     # what is using this port, and why?
 airctl stop :3000        # stop it (asks first; SIGTERM by default)
 airctl status            # every development service on your machine
-airctl status --watch    # live terminal dashboard
+airctl status --fast     # quick inventory without health probes or Docker
+airctl tui               # interactive terminal dashboard
+airctl status --watch    # alias for the terminal dashboard
 airctl ui                # local web UI
 ```
 
@@ -144,13 +146,14 @@ airctl refresh
 airctl doctor
 airctl config
 airctl ui              # local web UI on 127.0.0.1
-airctl status --watch  # terminal watch view
+airctl status --watch  # interactive terminal dashboard
+airctl tui             # search, project filter, details, confirmed stop
 airctl version
 ```
 
 Filtered status output recomputes counts and warnings for the selected services. `--all` includes system services in both rows and totals. Activity events remain the global discovery history.
 
-Flags: `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--yes` `--force`.
+Flags: `--fast` `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--yes` `--force`.
 
 Query commands and `stop` support `--json`; logs go to stderr. `ui`, `tui`, and shell completion output are not JSON. Use `--port` with `explain` or `stop`; it does not filter `status`. `--force` sends SIGKILL immediately on Unix (or `taskkill /F` on Windows), so use it only when forceful termination is intended. If graceful termination times out, `stop` exits with code 7 and reports `stopped: false` in JSON; it does not claim the process stopped.
 
@@ -177,6 +180,27 @@ Binds to `127.0.0.1:4114` by default. Views: overview, services, projects, topol
 
 Live updates use Server-Sent Events. The browser does not poll every second. The printed URL includes a session token; use that complete URL when opening the UI manually. Treat it as a local control credential.
 
+## Terminal dashboard
+
+Run `airctl tui` or `airctl status --watch`. Inventory appears without waiting for Docker or HTTP checks. The dashboard groups services by project and supports:
+
+| Key                  | Action                                               |
+| -------------------- | ---------------------------------------------------- |
+| `↑` / `↓`, `j` / `k` | Select a service                                     |
+| `/`                  | Search by port, project, PID, name, or health        |
+| `p`                  | Cycle project filters                                |
+| `Enter`              | Toggle process and project details                   |
+| `s`                  | Request a graceful stop; `y` confirms, `Esc` cancels |
+| `r`                  | Refresh                                              |
+| `h`                  | Toggle health checks and Docker enrichment           |
+| `a`                  | Include system services                              |
+| `Esc`                | Leave details or clear search                        |
+| `q`, `Ctrl+C`        | Quit and restore the terminal                        |
+
+`running` means a listener was found but health has not been probed. It is counted separately from `healthy`. When output is redirected, the TUI prints one plain fast snapshot instead of terminal control sequences.
+
+For repeatable local timing, run `npm run bench`. It reports three-sample command medians using the built CLI, without npm installer overhead. `--verbose` also reports discovery-stage durations on stderr. Docker discovery uses one running-container listing with a one-second budget; `doctor` reports a timeout as limited availability.
+
 ## VS Code Extension
 
 Browse and control your local services without leaving the editor.
@@ -189,8 +213,10 @@ npm run package
 code --install-extension ./airctl-vscode-*.vsix
 ```
 
-Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode). The extension needs the CLI installed globally or configured through `airctl.path`; running `npx airctl` once does not put it on PATH.
+Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode). The extension uses fast inventory by default (enable `airctl.detailedDiscovery` for Docker and health probes); `running` does not imply a successful health probe. It needs the CLI installed globally or configured through `airctl.path`; running `npx airctl` once does not put it on PATH.
 
+- **Find Service** — search by port, project, PID, or name; open localhost, copy an endpoint, reveal the project, explain, or stop
+- **Terminal Dashboard** — launch the interactive TUI using the configured CLI
 - **Status bar** — service count at a glance
 - **Sidebar tree view** — projects, services, and ports in the activity bar
 - **Explain Port** — right-click a port in your code or use the command palette
@@ -311,7 +337,7 @@ Linting uses **oxlint**, formatting uses **oxfmt**. Git hooks are managed with *
 
 Tests use fake process/socket/filesystem providers. They do not require Docker.
 
-Minimum Node.js: **22.14**. `node:sqlite` stores the last discovery snapshot and recent activity when available; AirCtl falls back to in-memory storage otherwise, and `doctor` reports that limitation. Each query command performs fresh discovery. The stored snapshot provides the baseline for change events across invocations; `logs` reads stored activity without scanning. `scan` and `refresh` explicitly request the same fresh discovery pipeline.
+Minimum Node.js: **22.14**. `node:sqlite` stores the last discovery snapshot and recent activity when available; AirCtl falls back to in-memory storage otherwise, and `doctor` reports that limitation. Each query command performs fresh discovery scoped to its task. `explain` inspects the requested port and its owners; PID inspection and stopping bypass unrelated discovery. `status --fast` skips Docker, health probes, and established TCP collection. The stored snapshot provides the baseline for change events across invocations; `logs` reads stored activity without scanning. `scan` and `refresh` explicitly request the same fresh discovery pipeline.
 
 ## Troubleshooting
 

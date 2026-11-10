@@ -1,3 +1,4 @@
+import { mapLimit } from "../runtime/limit.js";
 import type { FileSystemProvider } from "../runtime/fs.js";
 import type { ProcessInfo, Project } from "../domain/types.js";
 import { projectIdFor } from "../domain/ids.js";
@@ -28,10 +29,11 @@ export class FilesystemProjectDetector implements ProjectDetector {
       seeds.add(expandHome(root, this.fs.homeDir(), this.fs.join.bind(this.fs)));
 
     const found = new Map<string, Project>();
-    for (const seed of seeds) {
-      const project = await this.walkAncestors(seed);
+    const cache = new Map<string, Promise<Project | undefined>>();
+    await mapLimit([...seeds], 12, async (seed) => {
+      const project = await this.walkAncestors(seed, cache);
       if (project) found.set(project.id, project);
-    }
+    });
     return [...found.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
@@ -39,10 +41,18 @@ export class FilesystemProjectDetector implements ProjectDetector {
     return this.readProject(root);
   }
 
-  private async walkAncestors(start: string): Promise<Project | undefined> {
+  private async walkAncestors(
+    start: string,
+    cache: Map<string, Promise<Project | undefined>>,
+  ): Promise<Project | undefined> {
     let current = start;
     for (let i = 0; i < MAX_ANCESTOR_WALK; i += 1) {
-      const project = await this.readProject(current);
+      let pending = cache.get(current);
+      if (!pending) {
+        pending = this.readProject(current);
+        cache.set(current, pending);
+      }
+      const project = await pending;
       if (project) return project;
       const parent = this.fs.dirname(current);
       if (parent === current) break;
@@ -52,25 +62,30 @@ export class FilesystemProjectDetector implements ProjectDetector {
   }
 
   private async readProject(root: string): Promise<Project | undefined> {
-    const stat = await this.fs.stat(root);
-    if (!stat?.isDirectory && !stat?.isSymbolicLink) return undefined;
+    const entries = await this.fs.readDir(root);
+    if (!entries) return undefined;
+    const names = new Set(entries);
+    const present = async (file: string): Promise<boolean> =>
+      file.includes("/")
+        ? names.has(file.split("/")[0]!) && (await this.fs.exists(this.fs.join(root, file)))
+        : names.has(file);
 
     const markers: string[] = [];
     const kinds: string[] = [];
     for (const marker of PROJECT_MARKERS) {
-      if (await this.fs.exists(this.fs.join(root, marker.file))) {
+      if (await present(marker.file)) {
         markers.push(marker.file);
         kinds.push(marker.kind);
       }
     }
-    const isGitRoot = await this.fs.exists(this.fs.join(root, ".git"));
+    const isGitRoot = names.has(".git");
     if (markers.length === 0 && !isGitRoot) return undefined;
 
     const resolved = (await this.fs.realpath(root)) ?? root;
     const name = this.fs.basename(resolved) || resolved;
     const frameworkHints: string[] = [];
     for (const file of FRAMEWORK_FILES) {
-      if (await this.fs.exists(this.fs.join(root, file.file))) frameworkHints.push(file.name);
+      if (await present(file.file)) frameworkHints.push(file.name);
     }
 
     const kind = kinds[0] ?? (isGitRoot ? "git" : undefined);

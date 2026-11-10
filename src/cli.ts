@@ -122,10 +122,44 @@ async function dispatch(
     return 0;
   }
 
+  if (command === "explain") {
+    const port = flags.port ?? args[0];
+    if (!port) throw new AirCtlError("INVALID_INPUT", "Usage: airctl explain <port>");
+    const expl = await app.engine.explainPort(port);
+    io.stdout.write(
+      json
+        ? `${JSON.stringify(expl)}\n`
+        : `${formatExplanation(expl, app.runtime.clock.nowMs())}\n`,
+    );
+    return expl.occupied ? 0 : 3;
+  }
+  if (command === "inspect") {
+    const raw = args[0];
+    if (!raw || !/^\d+$/.test(raw))
+      throw new AirCtlError("INVALID_INPUT", "Usage: airctl inspect <pid>");
+    const proc = await app.engine.inspectPid(Number(raw));
+    if (json) io.stdout.write(`${JSON.stringify(proc)}\n`);
+    else {
+      const [projects, network] = await Promise.all([
+        app.engine.projects.detectFromProcesses([proc]),
+        app.engine.sockets.discover([], { connections: false }),
+      ]);
+      io.stdout.write(
+        `${formatInspect(proc, { projects, sockets: network.listening }, app.runtime.clock.nowMs(), palette)}\n`,
+      );
+    }
+    return 0;
+  }
+  if (command === "doctor") {
+    const report = await runDoctor(app.engine);
+    io.stdout.write(json ? `${JSON.stringify(report)}\n` : `${formatDoctor(report)}\n`);
+    return 0;
+  }
+
   const snapshot =
     command === "refresh" || command === "scan"
-      ? await app.engine.refresh()
-      : await app.engine.scan();
+      ? await app.engine.refresh({ fast: flags.fast })
+      : await app.engine.scan({ fast: flags.fast });
 
   switch (command) {
     case "status":
@@ -159,31 +193,6 @@ async function dispatch(
       if (json) io.stdout.write(`${JSON.stringify(snapshot.graph)}\n`);
       else io.stdout.write(`${formatGraph(snapshot)}\n`);
       return 0;
-    case "explain": {
-      const port = flags.port ?? args[0];
-      if (!port) throw new AirCtlError("INVALID_INPUT", "Usage: airctl explain <port>");
-      const expl = await app.engine.explainPort(port);
-      if (json) io.stdout.write(`${JSON.stringify(expl)}\n`);
-      else io.stdout.write(`${formatExplanation(expl, app.runtime.clock.nowMs())}\n`);
-      return expl.occupied ? 0 : 3;
-    }
-    case "inspect": {
-      const pidRaw = args[0];
-      if (!pidRaw || !/^\d+$/.test(pidRaw))
-        throw new AirCtlError("INVALID_INPUT", "Usage: airctl inspect <pid>");
-      const pid = Number.parseInt(pidRaw, 10);
-      const proc = await app.engine.inspectPid(pid);
-      if (json) io.stdout.write(`${JSON.stringify(proc)}\n`);
-      else
-        io.stdout.write(`${formatInspect(proc, snapshot, app.runtime.clock.nowMs(), palette)}\n`);
-      return 0;
-    }
-    case "doctor": {
-      const report = await runDoctor(app.engine);
-      if (json) io.stdout.write(`${JSON.stringify(report)}\n`);
-      else io.stdout.write(`${formatDoctor(report)}\n`);
-      return 0;
-    }
     default:
       throw new AirCtlError("INVALID_INPUT", `Unknown command: ${command}`);
   }
@@ -195,10 +204,24 @@ export async function stopCommand(
   flags: ReturnType<typeof parseArgv>["flags"],
   io: { stdout: NodeJS.WriteStream; stderr: NodeJS.WriteStream },
 ): Promise<number> {
-  const snapshot = app.engine.getSnapshot() ?? (await app.engine.scan());
   const raw = flags.port ? `:${flags.port}` : args[0];
   if (!raw) throw new AirCtlError("INVALID_INPUT", "Usage: airctl stop <pid|:port|project>");
-  const targets = resolveStopTargets(snapshot, raw);
+  const numeric = /^\d+$/.test(raw);
+  const pid = numeric ? Number(raw) : undefined;
+  const targets =
+    pid !== undefined
+      ? [
+          {
+            pid,
+            label: `${(await app.engine.inspectPid(pid)).executable ?? "process"} (PID ${pid})`,
+          },
+        ]
+      : resolveStopTargets(
+          raw.startsWith(":") || raw.startsWith("port:")
+            ? await app.engine.portSnapshot(raw.replace(/^port:/, ""))
+            : await app.engine.scan({ fast: true }),
+          raw,
+        );
   if (!flags.yes && io.stdout.isTTY) {
     io.stdout.write("Are you sure you want to stop:\n\n");
     for (const target of targets) io.stdout.write(`  ${target.label}\n`);
@@ -239,7 +262,7 @@ async function openCommand(
 ): Promise<number> {
   const name = args[0];
   if (!name) throw new AirCtlError("INVALID_INPUT", "Usage: airctl open <project>");
-  const snapshot = app.engine.getSnapshot() ?? (await app.engine.scan());
+  const snapshot = app.engine.getSnapshot() ?? (await app.engine.scan({ fast: true }));
   const project = snapshot.projects.find(
     (p) => p.name.toLowerCase() === name.toLowerCase() || p.root === name,
   );

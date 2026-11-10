@@ -1,3 +1,4 @@
+import type { NetworkOptions } from "./provider.js";
 import type { CommandRunner } from "../runtime/spawn.js";
 import type { EstablishedConnection, ListeningSocket, TransportProtocol } from "../domain/types.js";
 import { socketIdFor } from "../domain/ids.js";
@@ -7,14 +8,19 @@ export async function listDarwinSockets(commands: CommandRunner): Promise<Listen
   return (await listDarwinNetwork(commands)).listening;
 }
 
-export async function listDarwinNetwork(commands: CommandRunner): Promise<{
+export async function listDarwinNetwork(
+  commands: CommandRunner,
+  options: NetworkOptions = {},
+): Promise<{
   listening: ListeningSocket[];
   connections: EstablishedConnection[];
 }> {
   const [tcpListen, udp, established] = await Promise.all([
     commands.run("lsof", ["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcn"]),
     commands.run("lsof", ["-nP", "-iUDP", "-F", "pcn"]),
-    commands.run("lsof", ["-nP", "-iTCP", "-sTCP:ESTABLISHED", "-F", "pcn"]),
+    options.connections === false
+      ? Promise.resolve({ code: 0, stdout: "" })
+      : commands.run("lsof", ["-nP", "-iTCP", "-sTCP:ESTABLISHED", "-F", "pcn"]),
   ]);
   const listening = [
     ...(tcpListen.code === 0

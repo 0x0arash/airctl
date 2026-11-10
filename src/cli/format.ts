@@ -28,7 +28,9 @@ export function formatStatus(
     lines.push(palette.bold("AIRCTL — LOCAL DEVELOPMENT"));
     lines.push("");
     lines.push(`${summary.services} services`);
-    lines.push(`${summary.healthy} healthy`);
+    lines.push(
+      `${summary.healthy} healthy${summary.running ? ` · ${summary.running} running (not probed)` : ""}`,
+    );
     if (summary.stopped) lines.push(`${summary.stopped} stopped`);
     if (summary.orphaned) lines.push(`${summary.orphaned} orphaned`);
     if (summary.unhealthy) lines.push(`${summary.unhealthy} unhealthy`);
@@ -160,7 +162,7 @@ export function formatGraph(snapshot: Snapshot): string {
 
 export function formatInspect(
   proc: ProcessInfo,
-  snapshot: Snapshot,
+  snapshot: Pick<Snapshot, "projects" | "sockets">,
   nowMs: number,
   palette: Palette,
 ): string {

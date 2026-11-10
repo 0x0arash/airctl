@@ -164,6 +164,7 @@ export interface CapabilityStatus {
 export interface StatusSummary {
   services: number;
   healthy: number;
+  running?: number;
   unhealthy: number;
   stopped: number;
   warning: number;

@@ -29,8 +29,9 @@ export function createPalette(env: EnvProvider, stdoutIsTty: boolean): Palette {
 export function statusGlyph(health: string, palette: Palette): string {
   switch (health) {
     case "healthy":
-    case "running":
       return palette.green("●") + " " + health;
+    case "running":
+      return palette.cyan("●") + " running";
     case "unhealthy":
       return palette.red("●") + " unhealthy";
     case "orphaned":

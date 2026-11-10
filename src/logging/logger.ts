@@ -21,7 +21,8 @@ export function createLogger(
       sink(JSON.stringify({ level: lvl, msg: message, ...redactExtra(extra) }));
       return;
     }
-    if (lvl === "debug") sink(`dbg ${message}`);
+    if (lvl === "debug")
+      sink(`dbg ${message}${extra ? ` ${JSON.stringify(redactExtra(extra))}` : ""}`);
     else if (lvl === "warn") sink(`warn ${message}`);
     else if (lvl === "error") sink(`error ${message}`);
   };

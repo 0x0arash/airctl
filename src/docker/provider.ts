@@ -9,22 +9,29 @@ export interface ContainerProvider {
 export class DockerCliProvider implements ContainerProvider {
   constructor(private readonly commands: CommandRunner) {}
 
+  private listed: ContainerInfo[] | undefined;
+
   async available(): Promise<{ ok: boolean; detail: string }> {
-    const result = await this.commands.run("docker", ["info", "--format", "{{.ServerVersion}}"], {
-      timeoutMs: 2500,
+    const result = await this.commands.run("docker", ["ps", "--format", "{{json .}}"], {
+      timeoutMs: 1000,
     });
-    if (result.code !== 0) {
-      return { ok: false, detail: "Docker integration unavailable" };
-    }
-    return { ok: true, detail: `Docker ${result.stdout.trim() || "available"}` };
+    this.listed = [];
+    if (result.timedOut || result.code !== 0)
+      return {
+        ok: false,
+        detail: result.timedOut
+          ? "Docker discovery timed out (1s budget)"
+          : "Docker integration unavailable",
+      };
+    this.listed = parseDockerPsJson(result.stdout);
+    return { ok: true, detail: `Docker: ${this.listed.length} running containers` };
   }
 
   async listContainers(): Promise<ContainerInfo[]> {
-    const result = await this.commands.run("docker", ["ps", "-a", "--format", "{{json .}}"], {
-      timeoutMs: 4000,
-    });
-    if (result.code !== 0) return [];
-    return parseDockerPsJson(result.stdout);
+    if (this.listed === undefined) await this.available();
+    const listed = this.listed ?? [];
+    this.listed = undefined;
+    return listed;
   }
 }
 

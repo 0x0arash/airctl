@@ -3,7 +3,7 @@
 ## CLI commands
 
 ```bash
-airctl status [--json] [--all] [--project NAME] [--watch]
+airctl status [--fast] [--json] [--all] [--project NAME] [--watch]
 airctl explain <port> [--json]          # also: explain :3000
 airctl stop <pid|:port|project> [--yes] [--force] [--json]
 airctl inspect <pid> [--json]
@@ -16,7 +16,7 @@ airctl ui
 airctl version [--json]
 ```
 
-Options: `--json` `--quiet` `--verbose` `--yes` `--force` `--all` `--project` `--port` `--config` `--watch` `--help` `--version`.
+Options: `--fast` `--json` `--quiet` `--verbose` `--yes` `--force` `--all` `--project` `--port` `--config` `--watch` `--help` `--version`.
 
 `--port` supplies the port for `explain` or `stop`; it does not filter `status`. `--watch` applies to `status`. `ui`, `tui`, and completions do not emit JSON. The examples below illustrate payload shapes; timestamps, IDs, and counts are sample data. Optional fields may be omitted.
 
@@ -112,7 +112,7 @@ Key fields:
 }
 ```
 
-Use `--all` to include system services. Use `--project shop` to filter services, projects, warnings, and summary counts. Activity remains global. `--all` includes system services in totals as well as rows.
+`--fast` skips Docker, health probes, and established TCP collection. `summary.running` counts listeners without a health probe separately from `summary.healthy`. Use `--all` to include system services. Use `--project shop` to filter services, projects, warnings, and summary counts. Activity remains global. `--all` includes system services in totals as well as rows.
 
 ## JSON: `stop`
 

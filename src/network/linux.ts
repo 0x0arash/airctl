@@ -1,3 +1,4 @@
+import type { NetworkOptions } from "./provider.js";
 import type { FileSystemProvider } from "../runtime/fs.js";
 import { mapLimit } from "../runtime/limit.js";
 import type { EstablishedConnection, ListeningSocket } from "../domain/types.js";
@@ -16,7 +17,10 @@ export async function listLinuxSockets(fs: FileSystemProvider): Promise<Listenin
   return (await listLinuxNetwork(fs)).listening;
 }
 
-export async function listLinuxNetwork(fs: FileSystemProvider): Promise<LinuxNetworkDiscovery> {
+export async function listLinuxNetwork(
+  fs: FileSystemProvider,
+  options: NetworkOptions = {},
+): Promise<LinuxNetworkDiscovery> {
   const tables = [
     { path: "/proc/net/tcp", protocol: "tcp" as const, family: "ipv4" as const },
     { path: "/proc/net/tcp6", protocol: "tcp" as const, family: "ipv6" as const },
@@ -32,9 +36,10 @@ export async function listLinuxNetwork(fs: FileSystemProvider): Promise<LinuxNet
     const text = await fs.readFile(table.path);
     if (!text) continue;
     for (const parsed of parseProcNet(text, table.protocol, table.family)) {
-      listeningRows.push(parsed);
+      if (options.port === undefined || parsed.socket.port === options.port)
+        listeningRows.push(parsed);
     }
-    if (table.protocol === "tcp") {
+    if (table.protocol === "tcp" && options.connections !== false) {
       for (const parsed of parseProcNetEstablished(text, table.family)) {
         connectionRows.push(parsed);
       }

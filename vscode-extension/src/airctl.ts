@@ -6,6 +6,7 @@ import * as vscode from "vscode";
 export interface StatusSummary {
   services: number;
   healthy: number;
+  running?: number;
   unhealthy: number;
   stopped: number;
   warning: number;
@@ -87,6 +88,16 @@ function resolveCommand(): { cmd: string; args: string[]; shell: boolean } {
   };
 }
 
+export function tuiTerminalOptions(): vscode.TerminalOptions {
+  const { cmd, args, shell } = resolveCommand();
+  return {
+    name: "AirCtl",
+    shellPath: shell ? (process.env.ComSpec ?? "cmd.exe") : cmd,
+    shellArgs: shell ? ["/d", "/s", "/c", `${cmd} tui`] : [...args, "tui"],
+    env: args.length ? { ELECTRON_RUN_AS_NODE: "1" } : undefined,
+  };
+}
+
 function isAirCtlCheckout(manifest: string): boolean {
   try {
     return JSON.parse(readFileSync(manifest, "utf8")).name === "airctl";
@@ -121,7 +132,8 @@ function run(args: string[], allowedExitCodes: number[] = []): Promise<string> {
 let pendingStatus: Promise<StatusResult> | undefined;
 
 export function getStatus(): Promise<StatusResult> {
-  pendingStatus ??= run(["status", "--all", "--json"])
+  const full = vscode.workspace.getConfiguration("airctl").get<boolean>("detailedDiscovery", false);
+  pendingStatus ??= run(full ? ["status", "--json"] : ["status", "--fast", "--json"])
     .then((raw) => JSON.parse(raw) as StatusResult)
     .finally(() => {
       pendingStatus = undefined;

@@ -4,6 +4,7 @@ const COMMAND_LIST = COMMANDS.join(" ");
 
 const FLAGS = [
   "--json",
+  "--fast",
   "--quiet",
   "--verbose",
   "--watch",
@@ -83,13 +84,14 @@ _airctl() {
     '(-h --help)'{-h,--help}'[Show help]' \\
     '(-v --verbose)'{-v,--verbose}'[Debug logs on stderr]' \\
     '(-q --quiet)'{-q,--quiet}'[Minimal output]' \\
+    '--fast[Skip optional Docker and health enrichment]' \\
     '--json[Machine-readable output]' \\
     '(-w --watch)'{-w,--watch}'[Refresh continuously]' \\
     '(-a --all)'{-a,--all}'[Include system services]' \\
     '(-y --yes)'{-y,--yes}'[Confirm destructive actions]' \\
     '--force[Use forceful termination]' \\
     '--project[Filter by project]:project:' \\
-    '--port[Filter by port]:port:' \\
+    '--port[Port to explain or stop]:port:' \\
     '--config[Config file path]:file:_files' \\
     '1:command:->cmds' \\
     '*::arg:->args'
@@ -117,6 +119,7 @@ function fishCompletion(): string {
       (c) => `complete -c airctl -n "__fish_use_subcommand" -a ${c}`,
     ),
     'complete -c airctl -n "__fish_use_subcommand" -a complete',
+    "complete -c airctl -l fast -d 'Fast service inventory'",
     "complete -c airctl -l json -d 'Machine-readable output'",
     "complete -c airctl -s q -l quiet",
     "complete -c airctl -s v -l verbose",
