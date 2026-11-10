@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { getStatus, type ServiceEntry, type ProjectEntry, type StatusResult } from "./airctl";
+import { type ServiceEntry, type ProjectEntry, type StatusResult } from "./airctl";
 
 type TreeItem = ProjectNode | ServiceNode | PortNode;
 
@@ -9,14 +9,8 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
 
   private data: StatusResult | undefined;
 
-  async refresh(): Promise<void> {
-    try {
-      this.data = await getStatus();
-    } catch (err) {
-      // Keep the last successful inventory visible on transient failures.
-      const msg = err instanceof Error ? err.message : String(err);
-      vscode.window.setStatusBarMessage(`AirCtl refresh failed: ${msg}`, 5000);
-    }
+  update(status: StatusResult): void {
+    this.data = status;
     this.changeEmitter.fire(undefined);
   }
 
@@ -74,6 +68,7 @@ class ProjectNode extends vscode.TreeItem {
     public readonly services: ServiceEntry[],
   ) {
     super(project.name, vscode.TreeItemCollapsibleState.Expanded);
+    this.id = project.id;
     this.contextValue = "project";
     this.description = `${services.length} service${services.length === 1 ? "" : "s"}`;
     this.tooltip = project.root;
@@ -93,6 +88,7 @@ class ServiceNode extends vscode.TreeItem {
         : vscode.TreeItemCollapsibleState.None,
     );
 
+    this.id = service.id;
     this.contextValue = "service";
     this.description = `${service.ports.map((port) => `:${port}`).join(", ")} · ${healthLabel(service.health)}`;
     this.command = {
@@ -114,6 +110,7 @@ class PortNode extends vscode.TreeItem {
   constructor(port: number, service: ServiceEntry) {
     super(`:${port}`, vscode.TreeItemCollapsibleState.None);
     this.port = port;
+    this.id = `${service.id}:${port}`;
     this.contextValue = "port";
     this.iconPath = new vscode.ThemeIcon("plug");
     this.tooltip = `Port ${port} · ${service.name}`;

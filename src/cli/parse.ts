@@ -98,6 +98,7 @@ export function parseArgv(argv: string[]): CliRequest {
 }
 
 export const COMMANDS = [
+  "session",
   "status",
   "scan",
   "explain",
@@ -125,6 +126,7 @@ Usage:
   airctl [command] [options]
 
 Commands:
+  session                Persistent NDJSON session for editor integrations
   status                 Discover and show local services (default)
   scan                   Force a fresh discovery scan
   explain <port>         Explain what owns a port

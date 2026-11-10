@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import { pathToFileURL } from "node:url";
 
 const temporary = await mkdtemp(path.join(tmpdir(), "airctl-package-"));
@@ -59,7 +60,50 @@ try {
     assert.equal(asset.status, 200);
     assert.ok((await asset.text()).length > 100);
   }
-  console.log(`Packed airctl ${manifest.version}: CLI and bundled web assets verified`);
+  const { runSession } = await import(pathToFileURL(path.join(root, "dist/session/server.js")));
+  const input = new PassThrough();
+  const sessionOutput = new PassThrough();
+  const frames = [];
+  let buffered = "";
+  let snapshotReceived;
+  const received = new Promise((resolve) => {
+    snapshotReceived = resolve;
+  });
+  sessionOutput.setEncoding("utf8");
+  sessionOutput.on("data", (chunk) => {
+    buffered += chunk;
+    let newline;
+    while ((newline = buffered.indexOf("\n")) >= 0) {
+      const frame = JSON.parse(buffered.slice(0, newline));
+      buffered = buffered.slice(newline + 1);
+      frames.push(frame);
+      if (frame.type === "snapshot") snapshotReceived();
+    }
+  });
+  const empty = {
+    scannedAt: new Date().toISOString(),
+    durationMs: 0,
+    services: [],
+    projects: [],
+    sockets: [],
+    warnings: [],
+    events: [],
+    capabilities: {},
+    summary: {},
+  };
+  const session = runSession(
+    { engine: { scan: async () => empty } },
+    { input, output: sessionOutput, fast: true },
+  );
+  await received;
+  input.end();
+  await session;
+  assert.equal(frames[0].type, "ready");
+  assert.equal(frames[0].protocol, 1);
+  assert.deepEqual(frames.find((frame) => frame.type === "snapshot").data.services, []);
+  console.log(
+    `Packed airctl ${manifest.version}: CLI, live session, and bundled web assets verified`,
+  );
 } finally {
   await server?.close();
   await rm(temporary, { recursive: true, force: true });

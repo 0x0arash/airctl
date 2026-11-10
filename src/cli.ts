@@ -22,6 +22,7 @@ import { formatConfig } from "./config/load.js";
 import { runWatchTui } from "./tui/watch.js";
 import { startServer } from "./server/http.js";
 import { completionScript } from "./cli/complete.js";
+import { runSession } from "./session/server.js";
 import { resolveStopTargets } from "./control/targets.js";
 
 suppressSqliteExperimentalWarning();
@@ -77,6 +78,11 @@ async function dispatch(
   const json = flags.json;
   const tty = Boolean(io.stdout.isTTY);
   const palette = createPalette(app.runtime.env, tty);
+
+  if (command === "session") {
+    await runSession(app, { input: process.stdin, output: io.stdout, fast: flags.fast });
+    return 0;
+  }
 
   if (command === "config") {
     const payload = { path: app.configPath ?? null, config: app.config };

@@ -24,6 +24,8 @@ Thanks for helping. AirCtl should stay **fast, trustworthy, and locally private*
 - `src/cli`, `src/tui`, `src/server`, `web` — presentation
 - `vscode-extension` — VS Code extension (separate `package.json`, bundled with esbuild)
 
+The editor transport is documented in [docs/session-protocol.md](docs/session-protocol.md); session tests cover real child pipes as well as reconnect and EOF behavior.
+
 Keep domain logic out of React and out of CLI formatting.
 
 ## Rules of the road

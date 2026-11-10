@@ -213,7 +213,9 @@ npm run package
 code --install-extension ./airctl-vscode-*.vsix
 ```
 
-Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode). The extension uses fast inventory by default (enable `airctl.detailedDiscovery` for Docker and health probes); `running` does not imply a successful health probe. It needs the CLI installed globally or configured through `airctl.path`; running `npx airctl` once does not put it on PATH.
+Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode). The extension keeps one private discovery session per editor window and shares pushed snapshots across the sidebar, status bar, search, and actions. The status bar shows freshness; interrupted connections retain the last result with a stale indicator and reconnect automatically. Manual refresh requests a scan, while port explanations and stops inspect live state. See the [session protocol](docs/session-protocol.md). Older CLIs fall back to compatibility polling.
+
+The extension uses fast inventory by default (enable `airctl.detailedDiscovery` for Docker and health probes); `running` does not imply a successful health probe. It needs the CLI installed globally or configured through `airctl.path`; running `npx airctl` once does not put it on PATH.
 
 - **Find Service** — search by port, project, PID, or name; open localhost, copy an endpoint, reveal the project, explain, or stop
 - **Terminal Dashboard** — launch the interactive TUI using the configured CLI
@@ -222,7 +224,7 @@ Published extension releases are available on [Open VSX](https://open-vsx.org/ex
 - **Explain Port** — right-click a port in your code or use the command palette
 - **Stop Service** — stop a service directly from the tree view
 
-Settings: `airctl.path` (binary path, auto-detected by default) and `airctl.refreshInterval` (polling interval in seconds).
+Settings: `airctl.path` (binary path, auto-detected by default), `airctl.refreshInterval` (scanner interval in seconds), and `airctl.detailedDiscovery` (include Docker and health checks).
 
 See the [extension README](vscode-extension/README.md) for details.
 

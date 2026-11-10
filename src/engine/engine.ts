@@ -361,14 +361,18 @@ export class DiscoveryEngine {
     };
   }
 
-  async explainPort(portInput: string | number): Promise<PortExplanation> {
+  async explainPort(
+    portInput: string | number,
+    options: { fresh?: boolean } = {},
+  ): Promise<PortExplanation> {
     let port: number;
     try {
       port = parsePortArg(String(portInput));
     } catch {
       throw new AirCtlError("INVALID_INPUT", `Invalid port: ${portInput}. Expected 1–65535.`);
     }
-    const snapshot = this.snapshot ?? (await this.portSnapshot(port));
+    const snapshot =
+      !options.fresh && this.snapshot ? this.snapshot : await this.portSnapshot(port);
     const sockets = snapshot.sockets.filter((s) => s.port === port);
     if (sockets.length === 0) {
       return {

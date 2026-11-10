@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Fast inventory (`--fast`), discovery-stage timings, and a repeatable command benchmark.
+- Private NDJSON discovery sessions shared by editor views and commands, with cached reads, explicit refresh, reconnect backoff, stale indicators, and compatibility polling for older CLIs.
+- Fresh process-control queries, bounded session messages, EOF shutdown, and no automatic replay of mutations.
 - Interactive terminal dashboard with search, project filters, process details, optional health/Docker checks, and confirmed graceful stops.
 - Extension service search and actions for explaining ports, opening localhost, copying endpoints, revealing projects, and launching the TUI.
 

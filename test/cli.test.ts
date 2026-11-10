@@ -72,6 +72,12 @@ describe("cli help and explain formatting", () => {
 
 // Exercise the actual entry point, including package-manager-style command links.
 describe("CLI invocation", () => {
+  it("accepts a private fast JSON session", () => {
+    const parsed = parseArgv(["session", "--fast", "--json"]);
+    assert.equal(parsed.command, "session");
+    assert.equal(parsed.flags.fast, true);
+    assert.equal(parsed.flags.json, true);
+  });
   it("runs through a symlink named airctl", async () => {
     const { mkdtemp, symlink, rm } = await import("node:fs/promises");
     const { tmpdir } = await import("node:os");
