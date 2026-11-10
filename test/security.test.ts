@@ -1,33 +1,24 @@
+import { loadBundled } from "./helpers/bundle.js";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildSync } from "esbuild";
-import { createRequire } from "node:module";
 import { runInNewContext } from "node:vm";
 import { htmlFallback } from "../src/server/http.js";
 import type { ServerResponse } from "node:http";
-import { redactCommand } from "../src/domain/redact.js";
-
-export function loadBundled(entry: string, mocks: Record<string, unknown>) {
-  const code = buildSync({
-    entryPoints: [entry],
-    bundle: true,
-    write: false,
-    format: "cjs",
-    platform: "node",
-    packages: "external",
-  }).outputFiles[0]!.text;
-  const module = { exports: {} as Record<string, (...args: any[]) => any> };
-  const require = createRequire(import.meta.url);
-  new Function("require", "module", "exports", "__dirname", code)(
-    (name: string) => mocks[name] ?? require(name),
-    module,
-    module.exports,
-    "/installed-extension/dist",
-  );
-  return module.exports;
-}
+import { redactArgv, redactCommand } from "../src/domain/redact.js";
 
 describe("credential redaction", () => {
+  it("retains argument boundaries for multiword and escaped Linux arguments", () => {
+    assert.doesNotMatch(
+      redactArgv(["node", "app.js", "--password", 'CANARY_ONE "CANARY_TWO"', "--port", "3000"])!,
+      /CANARY/,
+    );
+  });
+  it("redacts multiword inline assignments before quoting arguments", () => {
+    assert.doesNotMatch(
+      redactArgv(["node", "--password=CANARY_ONE CANARY_TWO", "API_KEY=CANARY_THREE CANARY_FOUR"])!,
+      /CANARY/,
+    );
+  });
   it("redacts every credential even when another redaction has already matched", () => {
     for (const command of [
       "API_KEY=CANARY_ONE node app.js --password CANARY_TWO",
@@ -161,7 +152,7 @@ describe("fallback DOM safety", () => {
           ],
         }),
       }),
-      EventSource: class {},
+      EventSource: function EventSource() {},
     });
     await new Promise((resolve) => setImmediate(resolve));
     assert.ok(values.includes(payload));

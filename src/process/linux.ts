@@ -1,7 +1,7 @@
 import type { FileSystemProvider } from "../runtime/fs.js";
 import { mapLimit } from "../runtime/limit.js";
 import type { ProcessInfo } from "../domain/types.js";
-import { redactCommand } from "../domain/redact.js";
+import { redactArgv, redactCommand } from "../domain/redact.js";
 
 export async function listLinuxProcesses(fs: FileSystemProvider): Promise<ProcessInfo[]> {
   const entries = await fs.readDir("/proc");
@@ -24,7 +24,7 @@ export async function inspectLinuxProcess(
   const cmdlineRaw = await fs.readFile(`/proc/${pid}/cmdline`);
   const cwd = await fs.realpath(`/proc/${pid}/cwd`);
   const exe = await fs.realpath(`/proc/${pid}/exe`);
-  const command = cmdlineRaw ? cmdlineRaw.replaceAll("\0", " ").trim() : status.name;
+  const command = cmdlineRaw ? redactArgv(cmdlineRaw.split("\0").filter(Boolean)) : status.name;
   const startedAt = parseStartTime(statText);
 
   return {
