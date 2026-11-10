@@ -42,6 +42,7 @@ export function openSqliteStore(dbPath: string): SnapshotStore {
 }
 
 class SqliteSnapshotStore implements SnapshotStore {
+  readonly persistent = true;
   constructor(private readonly db: SqliteDb) {}
 
   async save(snapshot: Snapshot): Promise<void> {

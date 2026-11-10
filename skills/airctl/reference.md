@@ -112,7 +112,7 @@ Key fields:
 }
 ```
 
-Use `--all` to include system services. Use `--project shop` to filter.
+Use `--all` to include system services. Use `--project shop` to filter services, projects, warnings, and summary counts. Activity remains global. `--all` includes system services in totals as well as rows.
 
 ## JSON: `stop`
 
@@ -146,7 +146,7 @@ Use `--all` to include system services. Use `--project shop` to filter.
 
 Bare numeric targets always mean PIDs: `stop 3000` targets PID 3000, not port 3000. If a port is occupied but its owner is unavailable, stop reports `PERMISSION_DENIED`.
 
-By default, Unix stop sends SIGTERM and waits up to three seconds. Check each result’s `stopped` boolean; `false` means the process was still present after that wait. `--force` sends SIGKILL immediately on Unix or uses `taskkill /F` on Windows. AirCtl does not stop containers through Docker.
+By default, Unix stop sends SIGTERM and waits up to three seconds. Check each result’s `stopped` boolean; `false` means the process was still present after that wait, and the CLI exits 7. `--force` sends SIGKILL immediately on Unix or uses `taskkill /F` on Windows. AirCtl does not stop containers through Docker. Containers discovered only through Docker may appear without a host PID.
 
 ## Platform notes
 

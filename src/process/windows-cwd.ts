@@ -84,9 +84,9 @@ public class AirCtlCwd {
   }
 }
 "@
-foreach ($pid in @(${list})) {
-  $cwd = [AirCtlCwd]::Get([int]$pid)
-  if ($cwd) { Write-Output ("$pid\`t$cwd") }
+foreach ($processId in @(${list})) {
+  $cwd = [AirCtlCwd]::Get([int]$processId)
+  if ($cwd) { Write-Output ("$processId\`t$cwd") }
 }
 `.trim();
 }

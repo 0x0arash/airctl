@@ -38,6 +38,15 @@ export function App() {
     }
   };
 
+  const refresh = async (): Promise<void> => {
+    try {
+      await api.refresh();
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   useEffect(() => {
     void load();
     return api.subscribe(() => {
@@ -50,7 +59,7 @@ export function App() {
       if (event.target instanceof HTMLInputElement) return;
       const item = NAV.find((n) => n.shortcut === event.key);
       if (item) setView(item.id);
-      if (event.key === "r") void api.refresh().then(load);
+      if (event.key === "r") void refresh();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -98,7 +107,7 @@ export function App() {
       </aside>
       <main>
         <div className="toolbar">
-          <button type="button" onClick={() => void api.refresh().then(load)}>
+          <button type="button" onClick={() => void refresh()}>
             Refresh
           </button>
           {status ? <span className="muted">scanned {status.durationMs}ms</span> : null}
@@ -117,7 +126,7 @@ export function App() {
         {status && view === "projects" ? <ProjectsView status={status} /> : null}
         {graph && view === "graph" ? <GraphView graph={graph} /> : null}
         {status && view === "warnings" ? <WarningsView status={status} /> : null}
-        {status && view === "activity" ? <ActivityView /> : null}
+        {status && view === "activity" ? <ActivityView events={status.events} /> : null}
         {view === "inspect" ? (
           <Inspector port={selectedPort} pid={selectedPid} onStop={load} />
         ) : null}

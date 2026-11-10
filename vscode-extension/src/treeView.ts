@@ -4,8 +4,8 @@ import { getStatus, type ServiceEntry, type ProjectEntry, type StatusResult } fr
 type TreeItem = ProjectNode | ServiceNode | PortNode;
 
 export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
-  private readonly _onDidChange = new vscode.EventEmitter<TreeItem | undefined>();
-  readonly onDidChangeTreeData = this._onDidChange.event;
+  private readonly changeEmitter = new vscode.EventEmitter<TreeItem | undefined>();
+  readonly onDidChangeTreeData = this.changeEmitter.event;
 
   private data: StatusResult | undefined;
 
@@ -17,7 +17,11 @@ export class AirCtlTreeProvider implements vscode.TreeDataProvider<TreeItem> {
       const msg = err instanceof Error ? err.message : String(err);
       vscode.window.showErrorMessage(`AirCtl: ${msg}`);
     }
-    this._onDidChange.fire(undefined);
+    this.changeEmitter.fire(undefined);
+  }
+
+  dispose(): void {
+    this.changeEmitter.dispose();
   }
 
   getTreeItem(element: TreeItem): vscode.TreeItem {

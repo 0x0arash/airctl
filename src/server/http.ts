@@ -40,7 +40,7 @@ export async function startServer(options: {
       "Refusing to bind the UI to a non-loopback address. Set security.bind to 127.0.0.1.",
     );
   }
-  const port = options.port ?? options.app.config.ui.port;
+  let port = options.port ?? options.app.config.ui.port;
   const token = newAuthToken();
   const webRoot = resolveWebRoot();
   const sseClients = new Set<ServerResponse>();
@@ -103,7 +103,10 @@ export async function startServer(options: {
     server.on("error", reject);
   });
 
-  const url = `http://${bind}:${port}/#token=${token}`;
+  const address = server.address();
+  if (address && typeof address !== "string") port = address.port;
+  const host = bind.includes(":") ? `[${bind}]` : bind;
+  const url = `http://${host}:${port}/#token=${token}`;
   if (options.openBrowser) {
     const opener =
       options.app.runtime.platform === "darwin"
@@ -116,7 +119,7 @@ export async function startServer(options: {
   }
 
   return {
-    url: `http://${bind}:${port}`,
+    url,
     token,
     close: async () => {
       unsub();
@@ -374,7 +377,8 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
 function resolveWebRoot(): string {
   const here = fileURLToPath(new URL(".", import.meta.url));
   const candidates = [
-    join(here, "web"),
+    join(here, "../web"),
+    join(here, "../../dist/web"),
     join(here, "../web/dist"),
     join(process.cwd(), "web/dist"),
   ];

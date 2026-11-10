@@ -8,6 +8,15 @@ All notable changes to this project will be documented in this file.
 
 - Redact mixed and quoted credentials, render fallback service names as text, and prevent stale inspector requests from targeting another process.
 - Stop automatically executing workspace CLI files in the extension; restrict executable settings to the machine and require trusted workspaces.
+- Serve the bundled React UI from installed packages and print the complete authenticated URL.
+- Repair Windows process field separators, timestamps, permission reporting, and observed working-directory recovery.
+- Report stop timeouts accurately in the CLI, web UI, and editor extension; handle free-port JSON responses in the extension.
+- Mark HTTP timeouts unhealthy, cancel probe response bodies, and label framework guesses and Compose associations as inferred.
+- Preserve case-sensitive project identities, correlate Docker addresses and protocols, and retain running containers without host sockets.
+- Synchronize scans, restore persisted event baselines, report SQLite fallback accurately, and stop discovery loops cleanly.
+- Recompute filtered service summaries and warnings, validate configuration, refresh the extension sidebar, and update activity through SSE.
+- Add packaged CLI/web smoke tests, native Windows regression coverage, and extension checks to CI.
+- Clarify Linux process-age limitations, cache semantics, configuration constraints, and immediate force termination.
 
 ## [0.1.6] — 2026-11-07
 

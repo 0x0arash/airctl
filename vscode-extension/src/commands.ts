@@ -14,7 +14,7 @@ export function registerCommands(
       if (port === undefined) {
         const editor = vscode.window.activeTextEditor;
         const selected = editor?.document.getText(editor.selection).trim();
-        const match = selected?.match(/^:?(\d{2,5})$/);
+        const match = selected?.match(/^:?(\d{1,5})$/);
         if (match) {
           port = Number(match[1]);
         }
@@ -24,7 +24,10 @@ export function registerCommands(
         const input = await vscode.window.showInputBox({
           prompt: "Enter a port number",
           placeHolder: "3000",
-          validateInput: (v) => (/^\d{2,5}$/.test(v) ? null : "Enter a valid port number"),
+          validateInput: (v) =>
+            /^\d{1,5}$/.test(v) && Number(v) >= 1 && Number(v) <= 65535
+              ? null
+              : "Enter a port between 1 and 65535",
         });
         if (!input) return;
         port = Number(input);
@@ -80,7 +83,14 @@ export function registerCommands(
         if (answer !== "Stop") return;
 
         try {
-          await stopProcess(pid);
+          const result = await stopProcess(pid);
+          if (!result.stopped.length || result.stopped.some((entry) => !entry.stopped)) {
+            vscode.window.showWarningMessage(
+              `AirCtl: PID ${pid} is still running after the termination request.`,
+            );
+            await onRefresh();
+            return;
+          }
           vscode.window.showInformationMessage(`AirCtl: Stopped PID ${pid}.`);
           await onRefresh();
         } catch (err) {

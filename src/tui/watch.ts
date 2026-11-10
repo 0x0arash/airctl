@@ -1,3 +1,4 @@
+import type { Snapshot } from "../domain/types.js";
 import type { AppContext } from "../engine/app.js";
 import { formatStatus } from "../cli/format.js";
 
@@ -20,8 +21,8 @@ export async function runWatchTui(
     return;
   }
 
-  const render = async (): Promise<void> => {
-    const snapshot = await app.engine.scan();
+  const render = async (current?: Snapshot): Promise<void> => {
+    const snapshot = current ?? (await app.engine.scan());
     const body = formatStatus(snapshot, {
       env: app.runtime.env,
       tty: true,
@@ -59,8 +60,8 @@ export async function runWatchTui(
 
   await render();
   app.engine.startAdaptiveLoop();
-  const unsub = app.engine.onChange(() => {
-    void render();
+  const unsub = app.engine.onChange((snapshot) => {
+    void render(snapshot);
   });
 
   await new Promise<void>((resolve) => {

@@ -117,7 +117,7 @@ function classifyProcessService(
     framework: hit
       ? { name: hit.name, confidence: hit.confidence, evidence: hit.evidence }
       : undefined,
-    evidenceKind: hit && hit.confidence >= 0.8 ? "observed" : hit ? "inferred" : "unknown",
+    evidenceKind: hit ? "inferred" : "unknown",
   };
 }
 

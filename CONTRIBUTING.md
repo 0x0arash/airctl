@@ -9,7 +9,9 @@ Thanks for helping. AirCtl should stay **fast, trustworthy, and locally private*
 3. `npm test`
 4. `npm run typecheck`
 5. `npm run lint` / `npm run format`
-6. `npx tsx src/cli.ts status`
+6. `npm run build && npm run test:package`
+7. `npx tsx src/cli.ts status`
+8. For extension changes: `cd vscode-extension && npm ci && npm run typecheck && npm run compile`
 
 `npm install` installs [lefthook](https://github.com/evilmartians/lefthook) git hooks. Commits must follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`, …). Pre-commit runs `oxfmt` and `oxlint` on staged files.
 
@@ -31,7 +33,7 @@ Keep domain logic out of React and out of CLI formatting.
 - Never `exec` interpolated strings. Spawn argument arrays.
 - Treat process disappearance as normal, not fatal.
 - Label inference as inferred.
-- Prefer tests with fixtures and fakes over live-OS tests.
+- Prefer tests with fixtures and fakes over live-OS tests. Keep package HTTP smoke coverage and the native Windows collector regression in CI.
 - New detectors go in `src/detectors` as modules registered on `DetectorRegistry`.
 - `eval "$(airctl complete bash)"` (or `zsh` / `fish` / `powershell`) installs completions.
 

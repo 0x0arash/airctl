@@ -23,7 +23,8 @@
   "scripts": {
     "compile": "node build.mjs",
     "watch": "node build.mjs --watch",
-    "package": "vsce package"
+    "package": "vsce package",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "^18.19.130",

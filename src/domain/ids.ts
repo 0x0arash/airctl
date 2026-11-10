@@ -37,5 +37,8 @@ function sha16(value: string): string {
 }
 
 function normalizeKey(root: string): string {
-  return root.replaceAll("\\", "/").replace(/\/+$/, "").toLowerCase();
+  const normalized = root.replaceAll("\\", "/").replace(/\/+$/, "");
+  return /^[A-Za-z]:\//.test(normalized) || normalized.startsWith("//")
+    ? normalized.toLowerCase()
+    : normalized;
 }

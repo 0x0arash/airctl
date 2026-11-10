@@ -78,61 +78,104 @@ export async function loadConfig(
 export function parseConfigText(text: string, filePath: string): Partial<AirCtlConfig> {
   const trimmed = text.trim();
   if (!trimmed) return {};
-  if (filePath.endsWith(".json") || trimmed.startsWith("{")) {
-    return parseJsonConfig(trimmed);
+  try {
+    const parsed =
+      filePath.endsWith(".json") || trimmed.startsWith("{")
+        ? (JSON.parse(trimmed) as unknown)
+        : parseSimpleYaml(trimmed);
+    validateConfig(parsed);
+    return parsed;
+  } catch (error) {
+    if (error instanceof AirCtlError) throw error;
+    throw new AirCtlError(
+      "INVALID_INPUT",
+      `Invalid configuration in ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-  return parseSimpleYaml(trimmed);
-}
-
-function parseJsonConfig(text: string): Partial<AirCtlConfig> {
-  const raw: unknown = JSON.parse(text);
-  if (typeof raw !== "object" || raw === null) return {};
-  return raw as Partial<AirCtlConfig>;
 }
 
 export function parseSimpleYaml(text: string): Partial<AirCtlConfig> {
   const result: Record<string, unknown> = {};
-  let current: Record<string, unknown> = result;
-  let currentKey: string | undefined;
+  let section: Record<string, unknown> | undefined;
+  let listKey: string | undefined;
   for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.replace(/#.*$/, "");
+    let quote = "";
+    let line = "";
+    for (const char of rawLine) {
+      if ((char === '"' || char === "'") && (!quote || quote === char)) quote = quote ? "" : char;
+      if (char === "#" && !quote) break;
+      line += char;
+    }
     if (!line.trim()) continue;
-    const indent = rawLine.match(/^\s*/)?.[0].length ?? 0;
-    if (indent === 0 && line.trim().endsWith(":")) {
-      currentKey = line.trim().slice(0, -1);
-      current = {};
-      result[currentKey] = current;
+    if (!/^\s/.test(line)) {
+      const top = /^([A-Za-z]+):\s*$/.exec(line);
+      if (!top) throw new AirCtlError("INVALID_INPUT", `Expected a configuration section: ${line}`);
+      section = {};
+      result[top[1]!] = section;
+      listKey = undefined;
       continue;
     }
-    const listMatch = /^\s*-\s+(.*)$/.exec(line);
-    if (listMatch && currentKey) {
-      const bucket = result[currentKey];
-      if (bucket && typeof bucket === "object") {
-        const obj = bucket as Record<string, unknown>;
-        const lastKey = Object.keys(obj).at(-1);
-        if (lastKey && !Array.isArray(obj[lastKey])) {
-          obj[lastKey] = [];
-        }
-        const arr = (lastKey ? obj[lastKey] : obj.roots) as unknown;
-        if (Array.isArray(arr)) arr.push(unquote(listMatch[1] ?? ""));
-        else obj.roots = [unquote(listMatch[1] ?? "")];
-      }
+    if (!section) throw new AirCtlError("INVALID_INPUT", "Configuration values require a section.");
+    const item = /^\s*-\s+(.*)$/.exec(line);
+    if (item && listKey) {
+      (section[listKey] as unknown[]).push(unquote(item[1]!));
       continue;
     }
-    const kv = /^\s*([A-Za-z0-9_]+):\s*(.*)$/.exec(line);
-    if (kv) {
-      const key = kv[1] ?? "";
-      const value = unquote(kv[2] ?? "");
-      current[key] = coerce(value);
-    }
+    const pair = /^\s+([A-Za-z]+):\s*(.*?)\s*$/.exec(line);
+    if (!pair) throw new AirCtlError("INVALID_INPUT", `Invalid configuration line: ${line}`);
+    const [, key, value] = pair;
+    listKey = key === "roots" && !value ? key : undefined;
+    section[key!] = listKey
+      ? []
+      : value!.startsWith('"') || value!.startsWith("'")
+        ? unquote(value!)
+        : value === "[]"
+          ? []
+          : coerce(value!);
   }
   return result as Partial<AirCtlConfig>;
+}
+
+const object = (input: unknown): input is Record<string, unknown> =>
+  typeof input === "object" && input !== null && !Array.isArray(input);
+const integer = (input: unknown, min: number, max: number): boolean =>
+  Number.isInteger(input) && Number(input) >= min && Number(input) <= max;
+const loopback = (input: unknown): boolean =>
+  typeof input === "string" && ["127.0.0.1", "localhost", "::1"].includes(input);
+
+function validateConfig(value: unknown): asserts value is Partial<AirCtlConfig> {
+  const schema: Record<string, Record<string, (input: unknown) => boolean>> = {
+    scan: { interval: (input) => input === "adaptive" || integer(input, 1000, 2147483647) },
+    health: { enabled: (input) => typeof input === "boolean" },
+    projects: {
+      roots: (input) =>
+        Array.isArray(input) &&
+        input.every((root) => typeof root === "string" && root.trim().length > 0),
+    },
+    ui: {
+      openBrowser: (input) => typeof input === "boolean",
+      port: (input) => integer(input, 1, 65535),
+      bind: loopback,
+    },
+    security: { bind: loopback },
+    events: { limit: (input) => integer(input, 1, 10000) },
+  };
+  if (!object(value)) throw new AirCtlError("INVALID_INPUT", "Configuration must be an object.");
+  for (const [section, settings] of Object.entries(value)) {
+    const rules = Object.hasOwn(schema, section) ? schema[section] : undefined;
+    if (!rules || !object(settings))
+      throw new AirCtlError("INVALID_INPUT", `Invalid configuration section: ${section}`);
+    for (const [key, setting] of Object.entries(settings)) {
+      if (!Object.hasOwn(rules, key) || !rules[key]!(setting))
+        throw new AirCtlError("INVALID_INPUT", `Invalid configuration value: ${section}.${key}`);
+    }
+  }
 }
 
 function unquote(value: string): string {
   const v = value.trim();
   if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
-    return v.slice(1, -1);
+    return v.startsWith("'") ? v.slice(1, -1).replaceAll("''", "'") : (JSON.parse(v) as string);
   }
   return v;
 }
@@ -150,13 +193,18 @@ export function mergeConfig(
   partial: Partial<AirCtlConfig>,
   home: string,
 ): AirCtlConfig {
+  validateConfig(partial);
+  if (partial.ui?.bind && partial.security?.bind && partial.ui.bind !== partial.security.bind) {
+    throw new AirCtlError("INVALID_INPUT", "ui.bind and security.bind must agree.");
+  }
+  const bind = partial.security?.bind ?? partial.ui?.bind ?? base.security.bind;
   const roots = (partial.projects?.roots ?? base.projects.roots).map((r) => expandHome(r, home));
   return {
     scan: { ...base.scan, ...partial.scan },
     health: { ...base.health, ...partial.health },
     projects: { roots },
-    ui: { ...base.ui, ...partial.ui },
-    security: { ...base.security, ...partial.security },
+    ui: { ...base.ui, ...partial.ui, bind },
+    security: { ...base.security, ...partial.security, bind },
     events: { ...base.events, ...partial.events },
   };
 }
@@ -170,13 +218,14 @@ export function formatConfig(config: AirCtlConfig): string {
     "projects:",
     "  roots:",
     ...(config.projects.roots.length > 0
-      ? config.projects.roots.map((r) => `    - ${r}`)
+      ? config.projects.roots.map((r) => `    - '${r.replaceAll("'", "''")}'`)
       : ["    # none"]),
     "ui:",
     `  openBrowser: ${config.ui.openBrowser}`,
     `  port: ${config.ui.port}`,
-    `  bind: ${config.ui.bind}`,
     "security:",
     `  bind: ${config.security.bind}`,
+    "events:",
+    `  limit: ${config.events.limit}`,
   ].join("\n");
 }

@@ -45,7 +45,7 @@ export function inferTopology(input: {
       edges.push({
         from: service.projectId,
         to: service.id,
-        kind: "observed",
+        kind: byPid.get(service.processId ?? -1)?.cwdKind === "inferred" ? "inferred" : "observed",
         reason: "service belongs to project",
       });
     }
@@ -142,19 +142,24 @@ export function inferTopology(input: {
     }
   }
 
+  const composeGroups = new Map<string, Service[]>();
   for (const container of input.containers ?? []) {
     if (!container.composeProject) continue;
-    const related = input.services.filter((s) => s.containerId === container.id);
-    for (let i = 0; i < related.length; i += 1) {
-      for (let j = i + 1; j < related.length; j += 1) {
-        const a = related[i];
-        const b = related[j];
-        if (!a || !b) continue;
+    const group = composeGroups.get(container.composeProject) ?? [];
+    group.push(...input.services.filter((service) => service.containerId === container.id));
+    composeGroups.set(container.composeProject, group);
+  }
+  for (const [project, group] of composeGroups) {
+    for (let i = 0; i < group.length; i += 1) {
+      for (let j = i + 1; j < group.length; j += 1) {
+        const a = group[i]!;
+        const b = group[j]!;
+        if (a.containerId === b.containerId) continue;
         edges.push({
           from: a.id,
           to: b.id,
-          kind: "observed",
-          reason: `same Compose project ${container.composeProject}`,
+          kind: "inferred",
+          reason: `shared Compose project ${project}; communication not observed`,
         });
       }
     }

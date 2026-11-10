@@ -18,14 +18,19 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     statusBar,
+    treeProvider,
     treeView,
     vscode.commands.registerCommand("airctl.refresh", () => refreshAll()),
   );
 
   registerCommands(context, treeProvider, refreshAll);
 
-  statusBar.startAutoRefresh();
-  void treeProvider.refresh();
+  statusBar.startAutoRefresh(refreshAll);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("airctl")) statusBar.startAutoRefresh(refreshAll);
+    }),
+  );
 }
 
 export function deactivate() {

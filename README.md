@@ -49,7 +49,7 @@ Developers constantly run into:
 
 `lsof` and `netstat` answer "what is using port X?" badly. They don't tell you _which project_, _how long it's been running_, or _whether you can safely kill it_.
 
-AirCtl does.
+AirCtl associates listeners with projects and reports the evidence available on your platform. Linux currently omits process start times, so running age is unavailable there.
 
 ## What can it do?
 
@@ -148,9 +148,11 @@ airctl status --watch  # terminal watch view
 airctl version
 ```
 
+Filtered status output recomputes counts and warnings for the selected services. `--all` includes system services in both rows and totals. Activity events remain the global discovery history.
+
 Flags: `--json` `--quiet` `--verbose` `--watch` `--project` `--port` `--all` `--yes` `--force`.
 
-Query commands and `stop` support `--json`; logs go to stderr. `ui`, `tui`, and shell completion output are not JSON. Use `--port` with `explain` or `stop`; it does not filter `status`. `--force` sends SIGKILL immediately on Unix (or `taskkill /F` on Windows), so use it only when forceful termination is intended.
+Query commands and `stop` support `--json`; logs go to stderr. `ui`, `tui`, and shell completion output are not JSON. Use `--port` with `explain` or `stop`; it does not filter `status`. `--force` sends SIGKILL immediately on Unix (or `taskkill /F` on Windows), so use it only when forceful termination is intended. If graceful termination times out, `stop` exits with code 7 and reports `stopped: false` in JSON; it does not claim the process stopped.
 
 **Shell completions:**
 
@@ -173,7 +175,7 @@ airctl ui
 
 Binds to `127.0.0.1:4114` by default. Views: overview, services, projects, topology graph, port/process inspector, warnings, activity.
 
-Live updates use Server-Sent Events. The browser does not poll every second.
+Live updates use Server-Sent Events. The browser does not poll every second. The printed URL includes a session token; use that complete URL when opening the UI manually. Treat it as a local control credential.
 
 ## VS Code Extension
 
@@ -210,7 +212,7 @@ CLI / TUI / Web / VS Code
  OS / Docker / filesystem
 ```
 
-AirCtl queries the OS for processes, sockets, working directories, and Docker containers, then correlates them into projects and services.
+AirCtl queries the OS for processes, sockets, working directories, and Docker containers, then correlates them into projects and services. Running containers remain visible even when Docker publishes ports through NAT without a host listener. Such containers have no host PID to stop; AirCtl does not terminate containers through Docker.
 
 | Area      | Linux                      | macOS              | Windows                                                       |
 | --------- | -------------------------- | ------------------ | ------------------------------------------------------------- |
@@ -230,7 +232,7 @@ Topology edges and framework guesses are labeled:
 - **Inferred** — likely relationships (Compose, typical frontend→api→db)
 - **Unknown** — not enough signal
 
-AirCtl will not present an inference as a fact.
+Framework and port-based classifications are inferred, regardless of confidence. A shared Compose project produces an inferred association, not evidence of communication. Observed TCP edges require OS connection evidence.
 
 ## Permissions
 
@@ -279,6 +281,8 @@ security:
   bind: 127.0.0.1
 ```
 
+Configuration values are validated: numeric scan intervals are milliseconds (1000–2147483647), UI ports are 1–65535, and `events.limit` is 1–10000. Unknown keys and malformed values produce `INVALID_INPUT`. YAML supports nested sections and a `projects.roots` list; JSON is also accepted. `security.bind` accepts only loopback hosts. The legacy `ui.bind` alias is supported when it agrees with `security.bind`.
+
 Locations: `./airctl.yaml` or the user config directory (`~/.config/airctl/config.yaml`, `%LOCALAPPDATA%\airctl\config.yaml`, `~/Library/Application Support/airctl/config.yaml`).
 
 ## Health checks
@@ -289,6 +293,7 @@ Conservative by design:
 - HTTP GET `/` only for likely HTTP development servers
 - distinctive User-Agent `AirCtl/… (local-health-check)`
 - no credentials, no form posts, no destructive methods
+- HTTP timeout or connection failure marks a likely HTTP service unhealthy, even if TCP accepts connections
 
 ## Development
 
@@ -306,7 +311,7 @@ Linting uses **oxlint**, formatting uses **oxfmt**. Git hooks are managed with *
 
 Tests use fake process/socket/filesystem providers. They do not require Docker.
 
-Minimum Node.js: **22.14**. `node:sqlite` is used as a local cache when available; AirCtl falls back to in-memory storage otherwise.
+Minimum Node.js: **22.14**. `node:sqlite` stores the last discovery snapshot and recent activity when available; AirCtl falls back to in-memory storage otherwise, and `doctor` reports that limitation. Each query command performs fresh discovery. The stored snapshot provides the baseline for change events across invocations; `logs` reads stored activity without scanning. `scan` and `refresh` explicitly request the same fresh discovery pipeline.
 
 ## Troubleshooting
 

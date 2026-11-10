@@ -1,5 +1,5 @@
 import type { CommandRunner } from "../runtime/spawn.js";
-import type { ContainerInfo, TransportProtocol } from "../domain/types.js";
+import type { ContainerInfo } from "../domain/types.js";
 
 export interface ContainerProvider {
   listContainers(): Promise<ContainerInfo[]>;
@@ -64,19 +64,18 @@ export function parseDockerPsJson(text: string): ContainerInfo[] {
   return containers.filter((c) => c.id);
 }
 
-export function parseDockerPorts(
-  raw: string,
-): Array<{ host?: number; container: number; protocol: TransportProtocol }> {
-  const out: Array<{ host?: number; container: number; protocol: TransportProtocol }> = [];
+export function parseDockerPorts(raw: string): ContainerInfo["ports"] {
+  const out: ContainerInfo["ports"] = [];
   if (!raw.trim()) return out;
   for (const part of raw.split(",")) {
     const piece = part.trim();
-    const match = /(?:[\d.:[\]]+:)?(\d+)->(\d+)\/(tcp|udp)/i.exec(piece);
+    const match = /^(?:(.*):)?(\d+)->(\d+)\/(tcp|udp)$/i.exec(piece);
     if (match) {
       out.push({
-        host: Number.parseInt(match[1] ?? "", 10),
-        container: Number.parseInt(match[2] ?? "", 10),
-        protocol: (match[3] ?? "tcp").toLowerCase() === "udp" ? "udp" : "tcp",
+        host: Number.parseInt(match[2] ?? "", 10),
+        hostAddress: match[1]?.replace(/^\[|\]$/g, ""),
+        container: Number.parseInt(match[3] ?? "", 10),
+        protocol: (match[4] ?? "tcp").toLowerCase() === "udp" ? "udp" : "tcp",
       });
       continue;
     }

@@ -33,6 +33,7 @@ export interface StatusPayload {
     related: { pid?: number; port?: number; projectId?: string; serviceId?: string };
   }>;
   capabilities: Record<string, unknown>;
+  events: SnapshotExtras["events"];
 }
 
 export interface GraphPayload {
@@ -60,13 +61,17 @@ export interface SnapshotExtras {
   events: Array<{ id: string; at: string; type: string; message: string }>;
 }
 
-async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(path, { headers: { accept: "application/json" } });
+async function request(path: string, options?: RequestInit): Promise<Response> {
+  const res = await fetch(path, options ?? { headers: { accept: "application/json" } });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
     throw new Error(body.error?.message ?? `Request failed: ${res.status}`);
   }
-  return (await res.json()) as T;
+  return res;
+}
+
+async function getJson<T>(path: string): Promise<T> {
+  return (await request(path)).json() as Promise<T>;
 }
 
 function token(): string {
@@ -84,12 +89,12 @@ export const api = {
   inspect: (pid: number) =>
     getJson<{ process: SnapshotExtras["processes"][number] }>(`/api/v1/processes/${pid}`),
   refresh: () =>
-    fetch("/api/v1/refresh", {
+    request("/api/v1/refresh", {
       method: "POST",
       headers: { "x-airctl-token": token() },
     }),
   stop: (pid: number) =>
-    fetch(`/api/v1/processes/${pid}/stop`, {
+    request(`/api/v1/processes/${pid}/stop`, {
       method: "POST",
       headers: { "content-type": "application/json", "x-airctl-token": token() },
       body: JSON.stringify({}),

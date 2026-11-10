@@ -26,6 +26,13 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+      - run: npm run test:package
+      - run: npm ci
+        working-directory: vscode-extension
+      - run: npm run typecheck
+        working-directory: vscode-extension
+      - run: npm run compile
+        working-directory: vscode-extension
       - run: node dist/cli.js version --json
       - run: node dist/cli.js status --json
 

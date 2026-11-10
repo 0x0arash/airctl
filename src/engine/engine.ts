@@ -8,11 +8,11 @@ import type {
   Project,
   Service,
   Snapshot,
-  StatusSummary,
   Warning,
 } from "../domain/types.js";
+import { summarize } from "../domain/summary.js";
 import { AirCtlError } from "../domain/errors.js";
-import { eventIdFor } from "../domain/ids.js";
+import { serviceIdFor, eventIdFor } from "../domain/ids.js";
 import { describeEvent, type DomainEvent } from "../domain/events.js";
 import type { AirCtlConfig } from "../config/load.js";
 import { defaultConfig } from "../config/load.js";
@@ -70,7 +70,8 @@ export class DiscoveryEngine {
   private snapshot: Snapshot | undefined;
   private listeners = new Set<(snapshot: Snapshot, events: DomainEvent[]) => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
-  private scanning = false;
+  private inFlight: Promise<Snapshot> | undefined;
+  private loopGeneration = 0;
   private idleTicks = 0;
 
   constructor(deps: EngineDeps) {
@@ -102,23 +103,20 @@ export class DiscoveryEngine {
     return this.snapshot;
   }
 
-  async refresh(): Promise<Snapshot> {
+  refresh(): Promise<Snapshot> {
     return this.scan();
   }
 
-  async scan(): Promise<Snapshot> {
-    if (this.scanning) {
-      return this.snapshot ?? this.scanUnsynchronized();
-    }
-    this.scanning = true;
-    try {
-      return await this.scanUnsynchronized();
-    } finally {
-      this.scanning = false;
-    }
+  scan(): Promise<Snapshot> {
+    if (this.inFlight) return this.inFlight;
+    this.inFlight = this.scanUnsynchronized().finally(() => {
+      this.inFlight = undefined;
+    });
+    return this.inFlight;
   }
 
   private async scanUnsynchronized(): Promise<Snapshot> {
+    const previous = this.snapshot ?? (await this.store.load());
     const started = this.runtime.clock.nowMs();
     const [processRaw, dockerAvail] = await Promise.all([
       this.safe("processes", () => this.processes.listProcesses(), [] as ProcessInfo[]),
@@ -161,7 +159,7 @@ export class DiscoveryEngine {
       detectors: this.detectors,
     });
 
-    attachContainers(services, socketResult, containers);
+    attachContainers(services, socketResult, containers, projects);
 
     const cwdCache = new Map<string, boolean>();
     for (const proc of processResult) {
@@ -182,7 +180,8 @@ export class DiscoveryEngine {
 
     const interesting = services.filter((s) => isDevelopmentInterest(s) || s.health === "orphaned");
     await mapLimit(interesting, 8, async (service) => {
-      if (service.health === "orphaned") return;
+      if (service.health === "orphaned" || (service.containerId && service.socketIds.length === 0))
+        return;
       const socks = socketResult.filter((s) => service.socketIds.includes(s.id));
       try {
         const health = await this.health.check(service, socks);
@@ -222,7 +221,7 @@ export class DiscoveryEngine {
     const capabilities = await this.capabilities(processResult, socketResult, dockerAvail);
     const durationMs = this.runtime.clock.nowMs() - started;
     const scannedAt = this.runtime.clock.isoNow();
-    const domainEvents = diffSnapshots(this.snapshot, {
+    const domainEvents = diffSnapshots(previous, {
       processes: processResult,
       sockets: socketResult,
       projects,
@@ -251,7 +250,10 @@ export class DiscoveryEngine {
       warnings,
       graph,
       capabilities,
-      summary: summarize(services, warnings),
+      summary: summarize(
+        services.filter((s) => s.classification !== "system-service"),
+        warnings,
+      ),
       events,
     };
 
@@ -265,7 +267,12 @@ export class DiscoveryEngine {
   }
 
   async explainPort(portInput: string | number): Promise<PortExplanation> {
-    const port = typeof portInput === "number" ? portInput : parsePortArg(String(portInput));
+    let port: number;
+    try {
+      port = parsePortArg(String(portInput));
+    } catch {
+      throw new AirCtlError("INVALID_INPUT", `Invalid port: ${portInput}. Expected 1–65535.`);
+    }
     const snapshot = this.snapshot ?? (await this.scan());
     const sockets = snapshot.sockets.filter((s) => s.port === port);
     if (sockets.length === 0) {
@@ -337,7 +344,7 @@ export class DiscoveryEngine {
   }
 
   async inspectPid(pid: ProcessId): Promise<ProcessInfo> {
-    if (!Number.isInteger(pid) || pid <= 0) {
+    if (!Number.isSafeInteger(pid) || pid <= 0) {
       throw new AirCtlError("INVALID_INPUT", `Invalid PID: ${pid}`);
     }
     const live = await this.processes.inspect(pid);
@@ -348,12 +355,15 @@ export class DiscoveryEngine {
   }
 
   startAdaptiveLoop(): void {
+    this.stopLoop();
+    const generation = this.loopGeneration;
     const tick = async (): Promise<void> => {
       try {
         await this.scan();
       } catch (error) {
         this.logger.warn("scan failed", { error: String(error) });
       }
+      if (generation !== this.loopGeneration) return;
       const delay = adaptiveDelay(this.config.scan.interval, this.idleTicks);
       this.timer = setTimeout(() => {
         void tick();
@@ -364,12 +374,14 @@ export class DiscoveryEngine {
   }
 
   stopLoop(): void {
+    this.loopGeneration += 1;
     if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
   }
 
   async close(): Promise<void> {
     this.stopLoop();
+    await this.inFlight;
     await this.store.close();
   }
 
@@ -416,7 +428,12 @@ export class DiscoveryEngine {
               ? "No WSL or portproxy forwards detected"
               : "Not applicable",
       },
-      sqlite: { ok: true, detail: "Local cache enabled" },
+      sqlite: {
+        ok: this.store.persistent,
+        detail: this.store.persistent
+          ? "SQLite persistence enabled"
+          : "In-memory storage; SQLite persistence unavailable",
+      },
       docker: dockerAvail,
       httpHealth: {
         ok: this.config.health.enabled,
@@ -434,19 +451,6 @@ export class DiscoveryEngine {
       return fallback;
     }
   }
-}
-
-function summarize(services: Service[], warnings: Warning[]): StatusSummary {
-  const interesting = services.filter((s) => s.classification !== "system-service");
-  return {
-    services: interesting.length,
-    healthy: interesting.filter((s) => s.health === "healthy" || s.health === "running").length,
-    unhealthy: interesting.filter((s) => s.health === "unhealthy").length,
-    stopped: interesting.filter((s) => s.health === "stopped").length,
-    warning: warnings.length,
-    unknown: interesting.filter((s) => s.health === "unknown").length,
-    orphaned: interesting.filter((s) => s.health === "orphaned").length,
-  };
 }
 
 function inferIssue(
@@ -583,17 +587,62 @@ function attachContainers(
   services: Service[],
   sockets: ListeningSocket[],
   containers: import("../domain/types.js").ContainerInfo[],
+  projects: Project[],
 ): void {
   for (const container of containers) {
+    if (!/^(Up\b|running\b)/i.test(container.status)) continue;
+    const project = projectByCwd(
+      projects,
+      container.labels["com.docker.compose.project.working_dir"],
+    );
+    const attached = new Set<Service>();
+    const unmatchedPorts: number[] = [];
     for (const mapping of container.ports) {
       if (mapping.host === undefined) continue;
-      const sock = sockets.find((s) => s.port === mapping.host);
-      if (!sock) continue;
-      const service = services.find((s) => s.socketIds.includes(sock.id));
-      if (!service) continue;
-      service.containerId = container.id;
-      if (container.composeService) service.name = container.composeService;
-      if (service.classification === "unknown") service.classification = "container";
+      const matches = sockets.filter(
+        (socket) =>
+          socket.port === mapping.host &&
+          socket.protocol === mapping.protocol &&
+          (!mapping.hostAddress || socket.address === mapping.hostAddress),
+      );
+      if (matches.length === 0) unmatchedPorts.push(mapping.host);
+      for (const socket of matches) {
+        const service = services.find((s) => s.socketIds.includes(socket.id));
+        if (!service) continue;
+        service.containerId = container.id;
+        if (container.composeService) service.name = container.composeService;
+        if (project && !service.projectId) service.projectId = project.id;
+        if (service.classification === "unknown") service.classification = "container";
+        attached.add(service);
+      }
+    }
+    // NAT-published containers need not create a host listening socket.
+    if (attached.size === 0 || unmatchedPorts.length > 0) {
+      services.push({
+        id: serviceIdFor({ name: container.id }),
+        name: container.composeService ?? container.name,
+        containerId: container.id,
+        projectId: project?.id,
+        publishedPorts: [
+          ...new Set(
+            attached.size
+              ? unmatchedPorts
+              : container.ports.flatMap((mapping) =>
+                  mapping.host === undefined ? [] : [mapping.host],
+                ),
+          ),
+        ],
+        socketIds: [],
+        classification: "container",
+        confidence: 1,
+        health:
+          container.health === "unhealthy"
+            ? "unhealthy"
+            : container.health === "healthy"
+              ? "healthy"
+              : "running",
+        evidenceKind: "observed",
+      });
     }
   }
 }

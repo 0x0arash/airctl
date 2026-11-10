@@ -1,3 +1,4 @@
+import { summarize } from "../domain/summary.js";
 import path from "node:path";
 import type { ProcessInfo, Project, Service, Snapshot } from "../domain/types.js";
 import { formatAge } from "../runtime/clock.js";
@@ -19,8 +20,9 @@ export function formatStatus(
   },
 ): string {
   const palette = createPalette(options.env, options.tty);
-  const services = visibleServices(snapshot, options.all, options.project);
-  const summary = snapshot.summary;
+  const selected = selectSnapshot(snapshot, options.all, options.project);
+  const services = selected.services;
+  const summary = selected.summary;
   const lines: string[] = [];
   if (!options.quiet) {
     lines.push(palette.bold("AIRCTL — LOCAL DEVELOPMENT"));
@@ -50,7 +52,7 @@ export function formatStatus(
         statusGlyph(row.health, palette),
     );
   }
-  const publicWarnings = snapshot.warnings.filter((w) => w.kind === "public-bind");
+  const publicWarnings = selected.warnings.filter((w) => w.kind === "public-bind");
   if (publicWarnings.length > 0) {
     lines.push("");
     for (const warning of publicWarnings) {
@@ -192,7 +194,8 @@ export function formatInspect(
 }
 
 export function snapshotToJson(snapshot: Snapshot, all: boolean, project?: string): unknown {
-  const services = visibleServices(snapshot, all, project).map((s) => ({
+  snapshot = selectSnapshot(snapshot, all, project);
+  const services = snapshot.services.map((s) => ({
     id: s.id,
     name: s.name,
     projectId: s.projectId ?? null,
@@ -242,7 +245,29 @@ export function visibleServices(snapshot: Snapshot, all: boolean, project?: stri
       return proj?.name.toLowerCase() === needle || proj?.root.toLowerCase().includes(needle);
     });
   }
-  return services.sort((a, b) => a.name.localeCompare(b.name));
+  return [...services].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function selectSnapshot(snapshot: Snapshot, all: boolean, project?: string): Snapshot {
+  const services = visibleServices(snapshot, all, project);
+  const needle = project?.toLowerCase();
+  const projects = needle
+    ? snapshot.projects.filter(
+        (p) => p.name.toLowerCase() === needle || p.root.toLowerCase().includes(needle),
+      )
+    : snapshot.projects;
+  const serviceIds = new Set(services.map((s) => s.id));
+  const projectIds = new Set(projects.map((p) => p.id));
+  const pids = new Set(services.map((s) => s.processId));
+  const ports = new Set(services.flatMap((s) => portsOf(snapshot, s)));
+  const warnings = snapshot.warnings.filter(({ related }) => {
+    if (related.projectId) return projectIds.has(related.projectId);
+    if (related.serviceId) return serviceIds.has(related.serviceId);
+    if (related.pid !== undefined) return pids.has(related.pid);
+    if (related.port !== undefined) return ports.has(related.port);
+    return !project;
+  });
+  return { ...snapshot, services, projects, warnings, summary: summarize(services, warnings) };
 }
 
 function primaryPort(snapshot: Snapshot, service: Service): number | undefined {
@@ -250,7 +275,12 @@ function primaryPort(snapshot: Snapshot, service: Service): number | undefined {
 }
 
 function portsOf(snapshot: Snapshot, service: Service): number[] {
-  return snapshot.sockets.filter((s) => service.socketIds.includes(s.id)).map((s) => s.port);
+  return [
+    ...new Set([
+      ...snapshot.sockets.filter((s) => service.socketIds.includes(s.id)).map((s) => s.port),
+      ...(service.publishedPorts ?? []),
+    ]),
+  ];
 }
 
 function pad(value: string, width: number): string {

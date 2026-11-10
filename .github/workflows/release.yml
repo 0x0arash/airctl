@@ -36,6 +36,8 @@ jobs:
           node-version: 22
       - run: npm ci
         working-directory: vscode-extension
+      - run: npm run typecheck
+        working-directory: vscode-extension
       - run: npm run compile
         working-directory: vscode-extension
       - run: npx ovsx publish -p "$OVSX_PAT"

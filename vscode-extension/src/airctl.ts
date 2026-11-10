@@ -54,14 +54,18 @@ export interface PortExplanation {
 }
 
 export interface StopResult {
-  stopped: Array<{ pid: number; signal: string }>;
+  stopped: Array<{ pid: number; stopped: boolean; signal: string }>;
 }
 
 function resolveCommand(): { cmd: string; args: string[]; shell: boolean } {
   const configured = vscode.workspace.getConfiguration("airctl").get<string>("path", "");
   if (configured) {
+    if (process.platform === "win32" && /["%\r\n]/.test(configured)) {
+      throw new Error("airctl.path contains characters unsupported by Windows command shims.");
+    }
     return {
-      cmd: configured,
+      cmd:
+        process.platform === "win32" && /\.cmd$/i.test(configured) ? `"${configured}"` : configured,
       args: [],
       shell: process.platform === "win32" && /\.cmd$/i.test(configured),
     };
@@ -91,31 +95,46 @@ function isAirCtlCheckout(manifest: string): boolean {
   }
 }
 
-function run(args: string[]): Promise<string> {
+function run(args: string[], allowedExitCodes: number[] = []): Promise<string> {
   const { cmd, args: prefix, shell } = resolveCommand();
   return new Promise((resolve, reject) => {
-    execFile(cmd, [...prefix, ...args], { timeout: 15_000, shell }, (error, stdout, stderr) => {
-      if (error) {
-        const msg = stderr?.trim() || error.message;
-        reject(new Error(msg));
-        return;
-      }
-      resolve(stdout);
-    });
+    execFile(
+      cmd,
+      [...prefix, ...args],
+      {
+        timeout: 15_000,
+        shell,
+        env: prefix.length ? { ...process.env, ELECTRON_RUN_AS_NODE: "1" } : process.env,
+      },
+      (error, stdout, stderr) => {
+        if (error && !allowedExitCodes.includes(Number(error.code))) {
+          const msg = stderr?.trim() || error.message;
+          reject(new Error(msg));
+          return;
+        }
+        resolve(stdout);
+      },
+    );
   });
 }
 
-export async function getStatus(): Promise<StatusResult> {
-  const raw = await run(["status", "--all", "--json"]);
-  return JSON.parse(raw);
+let pendingStatus: Promise<StatusResult> | undefined;
+
+export function getStatus(): Promise<StatusResult> {
+  pendingStatus ??= run(["status", "--all", "--json"])
+    .then((raw) => JSON.parse(raw) as StatusResult)
+    .finally(() => {
+      pendingStatus = undefined;
+    });
+  return pendingStatus;
 }
 
 export async function explainPort(port: number): Promise<PortExplanation> {
-  const raw = await run(["explain", `:${port}`, "--json"]);
+  const raw = await run(["explain", `:${port}`, "--json"], [3]);
   return JSON.parse(raw);
 }
 
 export async function stopProcess(pid: number): Promise<StopResult> {
-  const raw = await run(["stop", String(pid), "--yes", "--json"]);
+  const raw = await run(["stop", String(pid), "--yes", "--json"], [7]);
   return JSON.parse(raw);
 }

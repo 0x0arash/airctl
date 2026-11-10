@@ -110,6 +110,18 @@ async function dispatch(
     return openCommand(app, args, json, io);
   }
 
+  if (command === "logs") {
+    const events = await app.store.loadEvents(app.config.events.limit);
+    io.stdout.write(
+      json
+        ? `${JSON.stringify(events)}\n`
+        : events.length
+          ? events.map((event) => `${event.at}  ${event.message}`).join("\n") + "\n"
+          : "No activity yet.\n",
+    );
+    return 0;
+  }
+
   const snapshot =
     command === "refresh" || command === "scan"
       ? await app.engine.refresh()
@@ -172,21 +184,12 @@ async function dispatch(
       else io.stdout.write(`${formatDoctor(report)}\n`);
       return 0;
     }
-    case "logs": {
-      const events = snapshot.events;
-      if (json) io.stdout.write(`${JSON.stringify(events)}\n`);
-      else {
-        if (events.length === 0) io.stdout.write("No activity yet.\n");
-        else for (const event of events) io.stdout.write(`${event.at}  ${event.message}\n`);
-      }
-      return 0;
-    }
     default:
       throw new AirCtlError("INVALID_INPUT", `Unknown command: ${command}`);
   }
 }
 
-async function stopCommand(
+export async function stopCommand(
   app: AppContext,
   args: string[],
   flags: ReturnType<typeof parseArgv>["flags"],
@@ -217,10 +220,15 @@ async function stopCommand(
   for (const target of targets) {
     const result = await app.controller.stop({ pid: target.pid, force: flags.force });
     results.push({ pid: target.pid, ...result });
-    if (!flags.json) io.stdout.write(`Stopped PID ${target.pid} (${result.signal}).\n`);
+    if (!flags.json)
+      io.stdout.write(
+        result.stopped
+          ? `Stopped PID ${target.pid} (${result.signal}).\n`
+          : `PID ${target.pid} is still running after ${result.signal}.\n`,
+      );
   }
   if (flags.json) io.stdout.write(`${JSON.stringify({ stopped: results })}\n`);
-  return 0;
+  return results.every((result) => result.stopped) ? 0 : 7;
 }
 
 async function openCommand(

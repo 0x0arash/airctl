@@ -11,14 +11,14 @@ See and control your local development services directly from VS Code.
 
 ## Requirements
 
-Install the CLI with `npm install -g airctl` (Node.js 22.14+) and make it available on the editor’s PATH, or set `airctl.path` to its executable. Running `npx airctl` once does not install a persistent command for the extension. During development, the extension can also detect a built local CLI.
+Install the CLI with `npm install -g airctl` (Node.js 22.14+) and make it available on the editor’s PATH, or set `airctl.path` to its executable. Running `npx airctl` once does not install a persistent command for the extension. During development, the extension can detect a built CLI in the AirCtl checkout containing the extension. It does not execute workspace `dist/cli.js` files. Executable settings are machine-scoped, and the extension requires a trusted workspace.
 
 ## Settings
 
 | Setting                  | Default | Description                                                        |
 | ------------------------ | ------- | ------------------------------------------------------------------ |
 | `airctl.path`            | `""`    | Empty means auto-detect; otherwise the path to the CLI executable. |
-| `airctl.refreshInterval` | `10`    | Auto-refresh interval in seconds.                                  |
+| `airctl.refreshInterval` | `10`    | Refresh interval for the sidebar and status bar, in seconds.       |
 
 ## Development
 
@@ -31,3 +31,5 @@ code --install-extension ./airctl-vscode-*.vsix
 ```
 
 Build the root project with `npm run build` first when using the local CLI. Published extension releases are available on [Open VSX](https://open-vsx.org/extension/0x0arash/airctl-vscode).
+
+Free ports are shown as **FREE**. A stop timeout is reported as still running, rather than as a successful stop. Changing either setting restarts refresh with the new configuration.

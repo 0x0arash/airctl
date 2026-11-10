@@ -29,13 +29,13 @@ export class StatusBarController implements vscode.Disposable {
     }
   }
 
-  startAutoRefresh(): void {
+  startAutoRefresh(onRefresh: () => Promise<void> = () => this.refresh()): void {
     this.stopAutoRefresh();
     const intervalSec = vscode.workspace
       .getConfiguration("airctl")
       .get<number>("refreshInterval", 10);
-    this.timer = setInterval(() => void this.refresh(), intervalSec * 1000);
-    void this.refresh();
+    this.timer = setInterval(() => void onRefresh(), intervalSec * 1000);
+    void onRefresh();
   }
 
   stopAutoRefresh(): void {

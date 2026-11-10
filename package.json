@@ -44,12 +44,13 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "node scripts/test.mjs",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run test:package",
     "dev": "tsx src/cli.ts",
     "dev:ui": "tsx src/cli.ts ui",
     "prepare": "node scripts/install-hooks.mjs",
     "prepack": "npm run build",
-    "git:tag": "node -e \"var v=require('./package.json').version;require('child_process').execSync('git tag -a v'+v+' -m '+JSON.stringify('Release v'+v),{stdio:'inherit'})\""
+    "git:tag": "node -e \"var v=require('./package.json').version;require('child_process').execSync('git tag -a v'+v+' -m '+JSON.stringify('Release v'+v),{stdio:'inherit'})\"",
+    "test:package": "node scripts/test-package.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",

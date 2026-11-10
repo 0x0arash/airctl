@@ -1,6 +1,7 @@
 import type { ActivityEvent, Snapshot } from "../domain/types.js";
 
 export interface SnapshotStore {
+  readonly persistent: boolean;
   save(snapshot: Snapshot): Promise<void>;
   load(): Promise<Snapshot | undefined>;
   appendEvents(events: ActivityEvent[], limit: number): Promise<ActivityEvent[]>;
@@ -9,6 +10,7 @@ export interface SnapshotStore {
 }
 
 export class MemorySnapshotStore implements SnapshotStore {
+  readonly persistent = false;
   private snapshot: Snapshot | undefined;
   private events: ActivityEvent[] = [];
 

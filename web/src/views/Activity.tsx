@@ -1,18 +1,6 @@
-import { useEffect, useState } from "react";
-import { api } from "../api/client";
+import type { SnapshotExtras } from "../api/client";
 
-export function ActivityView() {
-  const [events, setEvents] = useState<Array<{ id: string; at: string; message: string }>>([]);
-
-  useEffect(() => {
-    void api.status().then((status) => {
-      const raw = (
-        status as unknown as { events?: Array<{ id: string; at: string; message: string }> }
-      ).events;
-      setEvents(raw ?? []);
-    });
-  }, []);
-
+export function ActivityView({ events }: { events: SnapshotExtras["events"] }) {
   return (
     <section>
       <h1>Activity</h1>

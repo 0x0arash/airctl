@@ -21,7 +21,7 @@ export class PlatformProcessController implements ProcessController {
 
   async stop(options: StopOptions): Promise<{ stopped: boolean; signal: string }> {
     const pid = options.pid;
-    if (!Number.isInteger(pid) || pid <= 0) {
+    if (!Number.isSafeInteger(pid) || pid <= 0) {
       throw new AirCtlError("INVALID_INPUT", `Invalid PID: ${pid}`);
     }
     if (pid === process.pid || pid === 1) {

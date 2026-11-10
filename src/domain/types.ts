@@ -98,6 +98,7 @@ export interface Service {
   framework?: FrameworkGuess;
   evidenceKind: EvidenceKind;
   containerId?: string;
+  publishedPorts?: Port[];
   orphanReason?: string;
 }
 
@@ -219,7 +220,7 @@ export interface ContainerInfo {
   image: string;
   status: string;
   health?: string;
-  ports: Array<{ host?: Port; container: Port; protocol: TransportProtocol }>;
+  ports: Array<{ host?: Port; hostAddress?: string; container: Port; protocol: TransportProtocol }>;
   composeProject?: string;
   composeService?: string;
   labels: Record<string, string>;

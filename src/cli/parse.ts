@@ -150,7 +150,7 @@ Options:
   --port <port>          Port for explain or stop
   --all, -a              Include system services
   --yes, -y              Confirm destructive actions
-  --force                Use forceful termination after stop
+  --force                Terminate forcefully immediately
   --config <path>        Config file path
   --version              Print version
   --help, -h             Show help

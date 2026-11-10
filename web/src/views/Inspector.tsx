@@ -71,12 +71,23 @@ export function Inspector({
                     `Stop PID ${stopPid}? This sends a graceful termination request.`,
                   );
                   if (!ok) return;
-                  const res = await api.stop(stopPid);
-                  if (!res.ok) {
-                    setError("Stop failed.");
-                    return;
+                  try {
+                    const res = await api.stop(stopPid);
+                    if (!res.ok) {
+                      setError("Stop failed.");
+                      return;
+                    }
+                    const stopResult = (await res.json()) as { stopped?: boolean };
+                    if (stopResult.stopped !== true) {
+                      setError(`PID ${stopPid} is still running after the termination request.`);
+                      return;
+                    }
+                    setResult(undefined);
+                    await api.refresh();
+                    await onStop();
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : String(err));
                   }
-                  await onStop();
                 }}
               >
                 Stop process

@@ -9,8 +9,8 @@ export async function listWindowsProcesses(commands: CommandRunner): Promise<Pro
     "Get-CimInstance Win32_Process | ForEach-Object {",
     "  $cmd = $_.CommandLine -replace '[\\t\\r\\n]',' '",
     "  $path = $_.ExecutablePath",
-    "  $created = $_.CreationDate",
-    "  '{0}`t{1}`t{2}`t{3}`t{4}`t{5}`t{6}' -f $_.ProcessId,$_.ParentProcessId,$_.Name,$path,$cmd,$_.WorkingSetSize,$created",
+    "  $created = if ($_.CreationDate) { $_.CreationDate.ToUniversalTime().ToString('o') } else { '' }",
+    "  '{0}{7}{1}{7}{2}{7}{3}{7}{4}{7}{5}{7}{6}' -f $_.ProcessId,$_.ParentProcessId,$_.Name,$path,$cmd,$_.WorkingSetSize,$created,([char]9)",
     "}",
   ].join("; ");
 
@@ -43,6 +43,7 @@ export function parseWindowsCim(text: string): ProcessInfo[] {
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) continue;
     const cols = line.split("\t");
+    if (cols.length !== 7 || !/^\d+$/.test(cols[0] ?? "")) continue;
     const pid = Number.parseInt(cols[0] ?? "", 10);
     if (Number.isNaN(pid)) continue;
     const parentPid = Number.parseInt(cols[1] ?? "", 10);
@@ -59,7 +60,7 @@ export function parseWindowsCim(text: string): ProcessInfo[] {
       command: redactCommand(command ?? name),
       memoryBytes: Number.isNaN(workingSet) ? undefined : workingSet,
       startedAt: created,
-      availability: "ok",
+      availability: path && command ? "ok" : "permission-limited",
     });
   }
   return processes;

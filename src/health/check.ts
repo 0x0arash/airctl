@@ -34,8 +34,7 @@ export class ConservativeHealthChecker implements HealthChecker {
     if (!tcpOk) return "unhealthy";
 
     if (shouldHttpProbe(service)) {
-      const http = await httpGet(tcpSocket, this.options);
-      if (http === "healthy" || http === "unhealthy") return http;
+      return httpGet(tcpSocket, this.options);
     }
     return "healthy";
   }
@@ -70,7 +69,7 @@ export function tcpConnect(address: string, port: number, timeoutMs: number): Pr
 export async function httpGet(
   socket: ListeningSocket,
   options: HealthOptions,
-): Promise<HealthState | "skip"> {
+): Promise<HealthState> {
   const host =
     socket.address === "0.0.0.0" ? "127.0.0.1" : socket.address === "::" ? "[::1]" : socket.address;
   const urlHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
@@ -84,12 +83,13 @@ export async function httpGet(
       signal: ctrl.signal,
       headers: { "user-agent": options.userAgent, accept: "text/html,application/json,*/*" },
     });
+    await res.body?.cancel();
     if (res.status >= 200 && res.status < 400) return "healthy";
     if (res.status === 401 || res.status === 403 || res.status === 404) return "healthy";
     if (res.status >= 500) return "unhealthy";
     return "healthy";
   } catch {
-    return "skip";
+    return "unhealthy";
   } finally {
     clearTimeout(timer);
   }
